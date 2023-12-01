@@ -9,11 +9,11 @@ output reg nop_out;
 
 //	memAddr is an address register in the memory side.
 reg	[31:0]	memAddr;
-reg	[31:0]	Imem[0:512];
+reg	[31:0]	Imem[0:511];
 
 	//	The I-Memory is initially loaded
 initial
-	$readmemh ("C:/Users/imeli/Desktop/RISC_V/instr.txt", Imem);
+	$readmemh ("instructions/instr.txt", Imem);
 
 	//	I-mem is read in every cycle.
 	//	A read signal could be added if neccessary.

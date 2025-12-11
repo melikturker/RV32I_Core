@@ -13,10 +13,10 @@ module D_mem(address, data_in, data_out, we, clk);
 	always @(posedge clk) begin
 	
 			if (we) begin
-			     Memory[address] = data_in;
+			     Memory[address] <= data_in;
 			end
 			else begin
-				data_out = Memory[address];
+				data_out <= Memory[address];
 			end
 	end
 endmodule 

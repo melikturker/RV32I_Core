@@ -9,7 +9,7 @@ module Core (clk, rst);
 	wire [1:0] PC_sel;
 	
 	wire [1:0] op2_sel_ID, op2_sel_EX;
-	wire [2:0] ALU_sel_ID, ALU_sel_EX;
+	wire [3:0] ALU_sel_ID, ALU_sel_EX;
 	wire [2:0] RF_sel_ID, RF_sel_EX1, RF_sel_EX2, RF_sel_MEM, RF_sel_WB;
 	wire Z, N;
 	
@@ -134,7 +134,7 @@ module Core (clk, rst);
 			rs1, rs2, rd_ID, ALU_sel_ID, op2_sel_ID, RF_sel_ID, we_mem_ID, we_reg_ID, is_load_ID, is_signed_ID, word_length_ID,
 			
 			PC_EX, PC_4_EX, I_imm_EX, S_imm_EX, B_imm_EX, U_imm_EX, J_imm_EX, opcode_EX, func3_EX,
-			rs1_EX, rs2_EX, rd_EX, ALU_sel_EX, op2_sel_EX, RF_sel_EX1, we_mem_EX, we_reg_EX, is_load_EX, is_signed_EX, word_length_EX, nop_EX, we_EX, clk);
+			rs1_EX, rs2_EX, rd_EX, ALU_sel_EX, op2_sel_EX, RF_sel_EX1, we_mem_EX, we_reg_EX, is_load_EX, is_signed_EX, word_length_EX, nop_EX, we_EX, clk, rst);
 
 	// ------------ EX stage ------------
 

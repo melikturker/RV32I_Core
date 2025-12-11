@@ -14,15 +14,15 @@ module RF(rs1, rs2, rd, data_in, out1, out2, we, clk);
 	reg 	[31:0] rf [31:0];
 	
 		always @(posedge clk) begin
-			rf[0] = 32'b0;
+			rf[0] <= 32'b0;
 				if (we) begin 
-					rf[rd] = data_in;
-					out1 = rf[rs1];
-					out2 = rf[rs2];
+					rf[rd] <= data_in;
+					out1 <= rf[rs1];
+					out2 <= rf[rs2];
 				end
 				else begin
-					out1 = rf[rs1];
-					out2 = rf[rs2];
+					out1 <= rf[rs1];
+					out2 <= rf[rs2];
 				end 
 		end
 endmodule 

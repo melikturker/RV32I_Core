@@ -8,15 +8,16 @@ module D_mem(address, data_in, data_out, we, clk);
 	
 	output reg [31:0] data_out;
 	
-	reg [31:0] Memory[31:0]; // There might be 2^32 place in memery. But only 32 implemented to ease visualisation. 
+	reg [31:0] Memory[511:0]; // 512 words 
 	
 	always @(posedge clk) begin
 	
 			if (we) begin
-			     Memory[address] <= data_in;
+			     // $display("D_MEM WRITE: Addr=%d (Index %d) Data=%h", address, address[31:2], data_in);
+			     Memory[address[31:2]] <= data_in;
 			end
 			else begin
-				data_out <= Memory[address];
+				data_out <= Memory[address[31:2]];
 			end
 	end
 endmodule 

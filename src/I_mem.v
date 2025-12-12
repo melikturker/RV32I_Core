@@ -9,14 +9,18 @@ output reg nop_out;
 
 //	memAddr is an address register in the memory side.
 reg	[31:0]	memAddr;
-reg	[31:0]	Imem[0:511];
+reg	[31:0]	Imem[0:2047];
 
 	//	The I-Memory is initially loaded
-initial
-	$readmemh ("instructions/instr.txt", Imem);
+    reg [1023:0] test_file_path;
+initial begin
+    if ($value$plusargs("TESTFILE=%s", test_file_path)) begin
+        $readmemh(test_file_path, Imem);
+    end else begin
+        $readmemh("instructions/instr.txt", Imem);
+    end
+end
 
-	//	I-mem is read in every cycle.
-	//	A read signal could be added if neccessary.
 always @(posedge clk) begin
 	
 	nop_out = nop_in;

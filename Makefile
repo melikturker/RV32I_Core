@@ -20,7 +20,7 @@ $(OUT): $(SRC) $(TB)
 
 # Run simulation
 run: $(OUT)
-	$(VVP) $(OUT)
+	$(VVP) $(OUT) $(ARGS)
 
 # View waveforms
 wave: $(VCD)

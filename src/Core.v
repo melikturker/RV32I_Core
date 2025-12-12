@@ -2,7 +2,7 @@
 
 module Core (clk, rst);
 
-	input clk, rst;	
+	input clk, rst;
 	
 	wire [31:0] PC_IF, PC_ID, PC_EX, PC_MEM, PC_WB; 					// PC propagation through stages
 	wire [31:0] PC_4_IF, PC_4_ID, PC_4_EX, PC_4_MEM, PC_4_WB; 		// PC + 4 propagation through stages
@@ -98,10 +98,10 @@ module Core (clk, rst);
 	
 	// ------------ Forwarding Unit ------------	
 	Forwarding_Unit FU(ALU_out_EX, ALU_out_MEM, RF_in, PC_EX, PC_MEM, PC_4_EX, PC_4_MEM, U_imm_EX, U_imm_MEM, U_imm_WB,
-								rd_EX, rd_MEM, rd_WB, rs1_EX, rs2_EX,
+								rd_EX, rd_MEM, rd_WB, rs1_EX, rs2_EX, rs1, rs2,
 								RF_sel_MEM, we_reg_MEM, we_reg_WB,
 								FU_out1, FU_out2, FU_sel1, FU_sel2,
-								is_load_MEM, stall_FU, rst);
+								is_load_EX, is_load_MEM, stall_FU, rst);
 	
 	PC_sel_Unit PCU(opcode_EX, func3_EX, nop_ID2, Z, N, RF_sel_EX1, flush, RF_sel_EX2, PC_sel, rst);
 	

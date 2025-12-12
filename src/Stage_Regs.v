@@ -8,11 +8,18 @@ module IF_ID(PC_in, PC_4_in, nop, nop_out,
 	output reg we_out, nop_out;
 	
 	always @(posedge clk) begin
-	
+	   if (rst) begin
+	       // Reset Condition
+	       we_out <= 1'b1; // Default to enabled? Or 0?
+	       nop_out <= 1'b0;
+	       PC_out <= 32'b0;
+	       PC_4_out <= 32'b0;
+	   end
+	   else begin
 		we_out <= we;
 		nop_out <= nop;
 		
-		if (!rst && we && !nop) begin // Nop can be unnecessary
+		if (we && !nop) begin // Nop can be unnecessary
 			PC_out <= PC_in;
 			PC_4_out <= PC_4_in;
 		end
@@ -26,6 +33,7 @@ module IF_ID(PC_in, PC_4_in, nop, nop_out,
 			PC_out <= PC_out;
 			PC_4_out <= PC_4_out;
 		end
+	end
 	end
 	
 endmodule

@@ -13,16 +13,28 @@ module RF(rs1, rs2, rd, data_in, out1, out2, we, clk);
 	
 	reg 	[31:0] rf [31:0];
 	
-		always @(posedge clk) begin
-			rf[0] <= 32'b0;
-				if (we) begin 
-					rf[rd] <= data_in;
-					out1 <= rf[rs1];
-					out2 <= rf[rs2];
-				end
-				else begin
-					out1 <= rf[rs1];
-					out2 <= rf[rs2];
-				end 
+	integer i;
+	initial begin
+		for (i = 0; i < 32; i = i + 1) begin
+			rf[i] = 32'b0;
 		end
+	end
+	
+	always @(posedge clk) begin
+		rf[0] <= 32'b0;
+		if (we && rd != 0) begin 
+			rf[rd] <= data_in;
+			// Internal Forwarding (Write-Through)
+			// If reading the register being written in the same cycle, output new data.
+			if (rs1 == rd && rd != 0) out1 <= data_in;
+			else out1 <= rf[rs1];
+			
+			if (rs2 == rd && rd != 0) out2 <= data_in;
+			else out2 <= rf[rs2];
+		end
+		else begin
+			out1 <= rf[rs1];
+			out2 <= rf[rs2];
+		end 
+	end
 endmodule 

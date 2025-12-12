@@ -15,5 +15,34 @@ build/
 .DS_Store
 Thumbs.db
 
+
+
 # Documentation
 brain/
+
+# Test Results
+tests/results/
+tests/dmem_dump.txt
+tests/reg_dump.txt
+tests/generated_test.txt
+tests/histogram_test.txt
+tests/expected_dmem.txt
+tests/expected_regs.txt
+
+# Python
+__pycache__/
+*.pyc
+
+# Test Results
+tests/results/
+tests/dmem_dump.txt
+tests/reg_dump.txt
+tests/generated_test.txt
+tests/histogram_test.txt
+tests/expected_dmem.txt
+tests/expected_regs.txt
+tests/manual_test_dump.txt
+
+# Python
+__pycache__/
+*.pyc

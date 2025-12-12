@@ -1,6 +1,26 @@
 # RV32I Processor Core
 
-A synthesizable, 5-stage pipelined RISC-V 32I Processor Core written in Verilog. This project implements the base integer instruction set (R, I, S, B, U, J types) with full hazard handling.
+A synthesizable, 5-stage pipelined RISC-V 32I Processor Core written in Verilog.
+## Verification / Testing 🧪
+This project includes a comprehensive Python-based verification suite located in the `tests/` directory.
+
+### Prerequisites
+*   Python 3
+*   Icarus Verilog
+
+### How to Run Tests
+The repository features an advanced automated verification suite. For detailed instructions, please see [tests/README.md](tests/README.md).
+
+Quick Usage:
+```bash
+cd tests
+python3 verify.py --mode quick
+```
+This runs a rapid sanity check including randomized instructions, pipeline hazard corner cases (Load-Use, Branch Flush, etc.), and a memory histogram application.
+
+Also available:
+*   `--mode standard`: Broader coverage (100 random instr).
+*   `--mode stress`: Long-duration stability check (1000 instr).
 
 ## Features
 - **ISA:** RISC-V RV32I (Base Integer Instruction Set)

@@ -42,24 +42,11 @@ module PC_sel_Unit(opcode, funct3, is_flushed, Z, N, RF_sel_in, flush, RF_sel_ou
 				end
 				
 				7'b0010011: begin 
-					if(funct3 == 3'b010 || funct3 == 3'b011) begin	// SLTI or SLTIU
-						PC_sel = 2'b00;
-						flush = 1'b0;
-						if(N) RF_sel_out = 3'b110;
-						else RF_sel_out = 3'b101;
-					end
-					else RF_sel_out = RF_sel_in;
+					RF_sel_out = RF_sel_in;
 				end
 				
 				7'b0110011: begin 
-					
-					if(funct3 == 3'b010 || funct3 == 3'b011) begin	// SLT or SLTU
-						PC_sel = 2'b00;
-						flush = 1'b0;
-						if(N) RF_sel_out = 3'b110;
-						else RF_sel_out = 3'b101;
-					end
-					else RF_sel_out = RF_sel_in;
+					RF_sel_out = RF_sel_in;
 				end 
 				
 				

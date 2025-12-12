@@ -19,9 +19,22 @@ reg [6:0] funct7;
 
 always @(*) begin
 
-opcode = inst[6:0];
+	opcode = inst[6:0];
+	
+	// Default values to prevent latches
+	rs1 = 5'b0;
+	rs2 = 5'b0;
+	rd = 5'b0;
+	imm_I = 12'b0;
+	imm_S = 12'b0;
+	imm_B = 12'b0;
+	imm_U = 20'b0;
+	imm_J = 20'b0;
+	CU_info = 17'b0;
+	funct3 = 3'b0;
+	funct7 = 7'b0;
 
-case(opcode)
+	case(opcode)
 
 	7'b0110011: begin // R type instruction
 	

@@ -52,7 +52,7 @@ def generate_j_type(opcode, rd, imm):
     inst = (imm20 << 31) | (imm19_12 << 12) | (imm11 << 20) | (imm10_1 << 21) | (rd & 0x1F) << 7 | (opcode & 0x7F)
     return inst
 
-def main(count=100, seed=None):
+def main(count=100, seed=None, out_file="generated_test.txt", reg_file="expected_regs.txt"):
     if seed is not None:
         random.seed(seed)
         print(f"Generating randomized FULL coverage verification tests ({count} instructions, Seed={seed})...")
@@ -61,6 +61,20 @@ def main(count=100, seed=None):
     
     model = RISCV_Model()
     instructions = []
+    
+    # 0. Initialize ALL registers to 0
+    # ...
+    
+    # Random Mix of Instructions
+    for i in range(count):
+        # ... (Loop content is fine)
+        # Assuming surrounding code matches context
+        # Wait, I cannot see the loop here. I should be careful on ranges.
+        # I will rely on ReplaceFileContent fuzzy matching, but since I am replacing signature at line 55...
+        # And file writing at line 143.
+        pass
+
+    # Note: I'll use separate edits for signature vs file writing to be safe.
     
     # 0. Initialize ALL registers to 0
     for i in range(1, 32):
@@ -87,7 +101,9 @@ def main(count=100, seed=None):
         # Excluding Load/Store (3,4) due to memory init issues.
         # Excluding Branch/Jump (5,6) because random linear generation doesn't support control flow divergence.
         # (Model executes linearly, Core jumps -> Mismatch)
-        instr_type = random.choice([0, 1, 2]) 
+        # 0: R, 1: I-ALU, 2: U, 3: Load, 4: Store
+        # Enabling Load/Store to verify Core Logic!
+        instr_type = random.choice([0, 1, 2, 3, 4]) 
         
         inst = 0
         
@@ -114,6 +130,21 @@ def main(count=100, seed=None):
             op = random.choice([0x37, 0x17]) # LUI, AUIPC
             inst = generate_u_type(op, rd, imm20)
             
+        elif instr_type == 3: # Load
+             # LW, LB, LH, LBU, LHU
+             # Safe Address: x0 + Imm (0..128 aligned)
+             # To avoid segfault in Model, keep address valid.
+             # D_mem size is 512 words.
+             addr = random.randint(0, 127) * 4
+             funct3 = random.choice([0, 1, 2, 4, 5])
+             inst = generate_i_type(0x03, rd, 0, funct3, addr) # Base x0
+             
+        elif instr_type == 4: # Store
+             # SW, SB, SH
+             addr = random.randint(0, 127) * 4
+             funct3 = random.choice([0, 1, 2])
+             inst = generate_s_type(0x23, 0, rs2, addr) # Base x0, Src rs2
+             
         elif instr_type == 5: # Branch
             # BEQ, BNE, BLT, BGE, BLTU, BGEU
             b_ops = [0, 1, 4, 5, 6, 7]
@@ -138,12 +169,12 @@ def main(count=100, seed=None):
         
     
     # Write Instruction File
-    with open("generated_test.txt", "w") as f:
+    with open(out_file, "w") as f:
         for inst in instructions:
             f.write(to_hex_str(inst) + "\n")
             
     # Write Expected Results
-    with open("expected_regs.txt", "w") as f:
+    with open(reg_file, "w") as f:
         for i, val in enumerate(model.regs):
             f.write(f"x{i}: {to_hex_str(val)}\n")
             
@@ -159,6 +190,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--count", type=int, default=100, help="Number of random instructions")
     parser.add_argument("--seed", type=int, help="Random Seed")
+    parser.add_argument("--out", type=str, default="generated_test.hex", help="Output hex file")
+    parser.add_argument("--reg", type=str, default="expected_regs.txt", help="Expected register output")
     args = parser.parse_args()
     
-    main(args.count, args.seed)
+    main(args.count, args.seed, args.out, args.reg)

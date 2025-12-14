@@ -9,19 +9,19 @@ module tb();
 	integer f;
 	
 	initial begin
-		$dumpfile("tb.vcd");
-		$dumpvars(0, tb);
+		// $dumpfile("tb.vcd");
+		// $dumpvars(0, tb);
 	
 		// Optional: Waveform dump logic
-		for (idx = 0; idx <= 31; idx = idx + 1) begin
-			$dumpvars(0, core.regFile.rf[idx]);
-		end
+		// for (idx = 0; idx <= 31; idx = idx + 1) begin
+		// 	$dumpvars(0, core.regFile.rf[idx]);
+		// end
 		
 		clk = 0;
 		rst = 1; #2;
 		rst = 0;
 		// Wait long enough for stress tests
-		#200000; 
+		#2000000000; 
 		
 		// Dump Registers to File for Python Verification
 		f = $fopen("reg_dump.txt", "w");

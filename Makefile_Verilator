@@ -1,0 +1,23 @@
+MODULE=Core
+V_SRC=src/Core.v
+# Add all source files to compilation
+V_SRCS=src/*.v
+
+# Verilator Flags
+# Performance-optimized: -O3 instead of -Os, no tracing
+V_FLAGS=--cc --exe --build -j 4 -LDFLAGS "-lSDL2" -CFLAGS "-O3 -I/usr/include/SDL2" -Wno-fatal -Wno-CASEINCOMPLETE -Wno-WIDTHTRUNC --x-assign fast
+# Original (with tracing): --cc --exe --build -j 4 --trace -LDFLAGS "-lSDL2" -CFLAGS "-I/usr/include/SDL2" -Wno-fatal -Wno-CASEINCOMPLETE -Wno-WIDTHTRUNC
+# -Wno-fatal to ignore minor lint warnings
+
+.PHONY: all clean run
+
+all: obj_dir/V$(MODULE)
+
+obj_dir/V$(MODULE): sim_main.cpp $(V_SRCS)
+	verilator $(V_FLAGS) $(V_SRCS) sim_main.cpp --top-module $(MODULE) -Wno-style
+
+run: all
+	./run_verilator.sh $(TEST_FILE)
+
+clean:
+	rm -rf obj_dir

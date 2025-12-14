@@ -8,7 +8,7 @@ module D_mem(address, data_in, data_out, we, clk);
 	
 	output reg [31:0] data_out;
 	
-	reg [31:0] Memory[511:0]; // 512 words (0x0000 - 0x07FF)
+	reg [31:0] Memory[511:0] /*verilator public*/; // 512 words (0x0000 - 0x07FF)
 	
 	// Address Decoding
 	// wire is_vram = (address >= 32'h00008000); // Removed: Handled by Core/SoC now

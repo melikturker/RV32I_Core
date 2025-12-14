@@ -19,7 +19,7 @@ module Video_Mem(
     
     // Kept for backward compatibility if any internal logic uses it, 
     // but effectively unused for storage.
-    reg refresh_frame /*verilator public*/; 
+    reg [31:0] refresh_frame /*verilator public*/; 
     
     always @(posedge clk) begin
         if (we) begin

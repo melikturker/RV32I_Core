@@ -1,9 +1,8 @@
 #include <verilated.h>
 #include "VSoC.h"
+#include "VSoC.h"
 #include "VSoC___024root.h"
 #include "VSoC_SoC.h"
-#include "VSoC_Core.h"
-#include "VSoC_D_mem.h"
 #include "VSoC_Video_Mem.h"
 #include <SDL2/SDL.h>
 #include <iostream>
@@ -20,6 +19,9 @@ double sc_time_stamp() {
     return main_time;
 }
 
+// DPI Setup Function from sim_vram_dpi.cpp
+extern "C" void setup_dpi_vram(uint32_t* vram, volatile uint32_t* refresh);
+
 int main(int argc, char** argv) {
     // 1. Initialize Verilator
     Verilated::commandArgs(argc, argv);
@@ -27,6 +29,15 @@ int main(int argc, char** argv) {
 
     // 2. Initialize Model
     VSoC* top = new VSoC;
+
+    // VRAM Buffer for DPI
+    uint32_t* vram_buffer = new uint32_t[WIDTH * HEIGHT];
+    // Clear VRAM
+    for(int i=0; i<WIDTH*HEIGHT; i++) vram_buffer[i] = 0;
+
+    // Setup DPI (Connect C++ buffer to Verilog DPI calls)
+    // We pass the pointer to the Refresh flag inside Verilator model as well
+    setup_dpi_vram(vram_buffer, &top->rootp->SoC->video_mem_inst->refresh_frame);
 
     // 3. Initialize SDL
     if (SDL_Init(SDL_INIT_VIDEO) < 0) {
@@ -75,7 +86,7 @@ int main(int argc, char** argv) {
     std::cout << "Starting Simulation Loop..." << std::endl;
 
     while (!Verilated::gotFinish() && !quit) {
-        if (main_time < 10) std::cout << "Cycle: " << main_time << std::endl;
+        // if (main_time < 10) std::cout << "Cycle: " << main_time << std::endl;
         
         // Handle SDL Events (only check every 10000 cycles to reduce overhead)
         if (main_time % 10000 == 0) {
@@ -109,13 +120,13 @@ int main(int argc, char** argv) {
         if (top->rootp->SoC->video_mem_inst->refresh_frame == 1) {
             
             // Direct VRAM Access
-            const uint32_t* vram_ptr = &top->rootp->SoC->video_mem_inst->VRAM[0];
+            // const uint32_t* vram_ptr = &top->rootp->SoC->video_mem_inst->VRAM[0];
             
             // Debug log disabled for performance
             // std::cout << "[Visualizer] Frame Refresh Triggered at Cycle: " << main_time << std::endl;
              
              // Update Texture directly from VRAM pointer
-             SDL_UpdateTexture(texture, NULL, (void*)vram_ptr, WIDTH * 4);
+             SDL_UpdateTexture(texture, NULL, (void*)vram_buffer, WIDTH * 4);
              
              SDL_RenderClear(renderer);
              SDL_RenderCopy(renderer, texture, NULL, NULL);

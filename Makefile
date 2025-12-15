@@ -84,6 +84,21 @@ gui_verilate: $(VERILOG_SRCS) $(BUILD_DIR)/sim_soc.cpp
 
 gui: gui_verilate
 
+# --- 3. Coverage Target ---
+# Output: build/sim_cov
+COV_EXE = $(BUILD_DIR)/sim_cov
+
+cov_verilate: $(VERILOG_SRCS) $(BUILD_DIR)/sim_headless.cpp
+	@echo "[Makefile] Building Coverage Simulation..."
+	@$(VERILATOR) $(V_FLAGS) --coverage $(OPT_FLAGS) \
+		$(VERILOG_SRCS) $(PWD)/$(BUILD_DIR)/sim_headless.cpp $(PWD)/$(BUILD_DIR)/sim_vram_dpi.cpp \
+		-LDFLAGS "-pthread -lrt" \
+		-CFLAGS "-I$(PWD)/$(SIM_DIR) $(OPT_FLAGS)" \
+		-o ../sim_cov
+	@make -s -C $(OBJ_DIR) -f VSoC.mk
+
+coverage: cov_verilate
+
 # --- Cleanup ---
 clean:
 	rm -rf $(BUILD_DIR)

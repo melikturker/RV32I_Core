@@ -7,6 +7,7 @@
 #include "VSoC_D_mem.h"
 #include "VSoC_Video_Mem.h"
 #include "verilated_vcd_c.h"
+#include "verilated_cov.h"
 
 #include <iostream>
 #include <iomanip>
@@ -205,6 +206,11 @@ int main(int argc, char** argv) {
     if (trace_enabled) {
         tfp->close();
     }
+#endif
+
+#if VM_COVERAGE
+    Verilated::mkdir("logs");
+    VerilatedCov::write("logs/coverage.dat");
 #endif
 
     top->final();

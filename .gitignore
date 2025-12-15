@@ -1,7 +1,9 @@
 # Simulation Artifacts
 *.vcd
-*.out
-*.vvp
+*.hex
+app.hex
+logs/
+coverage.datvvp
 sim_build/
 build/
 *.gtkw

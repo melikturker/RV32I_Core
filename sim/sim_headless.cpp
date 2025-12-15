@@ -2,8 +2,12 @@
 #include "VSoC.h"
 #include "VSoC___024root.h"
 #include "VSoC_SoC.h"
+#include "VSoC_Core.h"
+#include "VSoC_I_mem.h"
+#include "VSoC_D_mem.h"
 #include "VSoC_Video_Mem.h"
 #include "verilated_vcd_c.h"
+#include "verilated_cov.h"
 
 #include <iostream>
 #include <iomanip>
@@ -113,7 +117,7 @@ int main(int argc, char** argv) {
     while (std::getline(file, line) && addr < 1024) { 
         try {
             uint32_t instr = std::stoul(line, nullptr, 16);
-            top->rootp->SoC->__PVT__core_inst__DOT__I_mem__DOT__Imem[addr] = instr;
+            top->rootp->SoC->core_inst->I_mem->Imem[addr] = instr;
             addr++;
         } catch (...) {}
     }
@@ -191,7 +195,7 @@ int main(int argc, char** argv) {
              for (int addr = 0; addr < 2048; addr += 4) {
                   uint32_t word_addr = addr >> 2;
                   if (word_addr >= 512) break; 
-                  uint32_t val = top->rootp->SoC->__PVT__core_inst__DOT__D_mem__DOT__Memory[word_addr];
+                  uint32_t val = top->rootp->SoC->core_inst->D_mem->Memory[word_addr];
                   dmem_file << "M[" << std::dec << addr << "]: " << std::hex << std::setw(8) << std::setfill('0') << val << std::endl;
              }
              dmem_file.close();
@@ -204,7 +208,13 @@ int main(int argc, char** argv) {
     }
 #endif
 
+#if VM_COVERAGE
+    Verilated::mkdir("logs");
+    VerilatedCov::write("logs/coverage.dat");
+#endif
+
     top->final();
+    std::cout << "Simulation PASSED" << std::endl;
     delete top;
     // shm destructor closes shared memory automatically
 

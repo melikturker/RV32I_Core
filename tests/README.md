@@ -1,53 +1,60 @@
-# RV32I Verification Suite
+# Verification Suite
 
-This directory contains the verification infrastructure for the RV32I Core. It uses a Python-based runner (`verify.py`) to manage random test generation, instruction loading, simulation execution, and result verification.
+This directory contains the verification infrastructure for the RV32I Core. The test suite combines directed manual tests with automated random instruction generation.
 
-## Folder Structure
+## Test Categories
 
-*   **`verify.py`**: The main test runner script.
-*   **`riscv_model.py`**: A Golden Reference Model (Python) used to verify Register File states.
-*   **`test_gen.py`**: Random instruction generator script.
-*   **`test_histogram.py`**: Generator for the Histogram memory test application.
-*   **`manual/`**: Directory for directed test files (Hex format).
-    *   `01_Hazard_RAW.hex`: Read-After-Write Hazard Test.
-    *   `02_Hazard_LoadUse.hex`: Load-Use Stall Hazard Test.
-    *   `04_Corner_x0.hex`: x0 Write Protection Test.
-    *   `05_Corner_StoreLoad.hex`: Memory Store-Load Forwarding Test.
-*   **`results/`**: Output directory for test runs. Each run creates a timestamped folder (e.g., `Run_20251212_173000_QUICK`).
+### 1. Manual Tests (`tests/manual/`)
+Targeted assembly/hex files designed to trigger specific hardware corner cases:
+*   **01_Hazard_RAW**: Read-After-Write hazards (Data forwarding).
+*   **02_Hazard_LoadUse**: Load-Use hazards (Stalling logic).
+*   **03_Corner_x0**: Verifies that register `x0` remains constant (0).
+*   **04_Corner_StoreLoad**: Memory store and load verification.
 
-## How to Run Tests
+### 2. Random Instruction Test (`test_gen.py`)
+A Python script that generates valid random RISC-V machine code streams.
+*   **Generator**: `tests/test_gen.py`
+*   **Output**: `build/random_test.hex`
+*   **Coverage**: Generates R-type, I-type, U-type, Load, Store, and Branch instructions.
 
-### 1. Quick Mode (Sanity Check)
-Runs 20 random instructions + All Directed Tests + Small Histogram.
+### 3. Default Sanity Check (`src/memory/instructions/instr.txt`)
+A basic "alive" test that checks fetch-decode-execute-writeback pipeline integrity without complex hazards.
+*   **Logic**: Loads immediates, stores to memory, and enters an infinite loop.
+*   **Status**: Passes if the simulator executes the instruction stream without crashing.
+
+## Running Tests
+
+Tests are executed via the root runner CLI.
+
+### Regression Testing
+Runs the standard suite (Manual + 1000 Random Instructions):
 ```bash
-python3 verify.py --mode quick
+./runner.py test
 ```
 
-### 2. Standard Mode (Coverage)
-Runs 100 random instructions + All Directed Tests + Standard Histogram.
+### Stress Testing
+Runs a larger volume of random instructions to find rare edge cases:
 ```bash
-python3 verify.py --mode standard
+# Generate 5000 random instructions
+./runner.py test --count 5000 --seed 1234
 ```
 
-### 3. Stress Mode (Stability)
-Runs 1000 random instructions + All Directed Tests + Large Histogram.
+## Coverage Analysis 📊
+To measure which parts of the Verilog design are being exercised by tests, use the coverage tool. This requires `verilator` with coverage support enabled.
+
 ```bash
-python3 verify.py --mode stress
+./runner.py coverage
 ```
 
-## How It Works
+**Workflow:**
+1.  **Build**: Compiles the simulator with `--coverage` instrumentation.
+2.  **Generate**: Creates a random test vector (default: 1000 instructions).
+3.  **Simulate**: Runs the test to collect execution data.
+4.  **Report**:
+    *   Generates an Annotated Source Report in `logs/annotated/`.
+    *   Prints a summary score to the terminal.
 
-1.  **Generation**: `verify.py` calls `test_gen.py` to create a random sequence of RISC-V instructions (`random_test_source.hex`) and a corresponding golden state (`expected_regs.txt`).
-2.  **Compilation**: It invokes `make` in the root directory to compile the Verilog source.
-3.  **Execution**: It runs the simulation (`vvp`), passing the test file dynamically via `+TESTFILE=...`.
-4.  **Verification**: 
-    *   **Registers**: Comparing the simulator's `reg_dump.txt` against the Python model's golden state.
-    *   **Memory**: Comparing the simulator's `dmem_dump.txt` against the expected memory map (for Histogram tests).
-5.  **Reporting**: Failing tests generate a `_failure.txt` file in the result directory with diff details.
-
-## Adding New Tests
-
-To add a new directed test:
-1.  Create a hex file (machine code) in `tests/manual/`.
-2.  Name it descriptively (e.g., `06_New_Feature.hex`).
-3.  `verify.py` will automatically pick it up in the next run.
+**Interpreting Results:**
+*   Open `logs/annotated/VSoC_Core.v`.
+*   Lines prefixed with a number (e.g., `1234: assign ...`) were executed 1234 times.
+*   Lines prefixed with `%` or empty counts were **not executed** (Coverage Hole).

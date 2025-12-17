@@ -79,6 +79,22 @@ def cmd_build(args):
     run_cmd(f"make {target} -s", silent=False) # Keep make output visible if needed, or silent? User wanted prettier logic.
     # Makefile is mostly silent now due to modifications, only prints custom echos.
 
+# --- Helper Functions ---
+def detect_gui_needed(file_path):
+    """Detect if the application requires GUI (VRAM usage)."""
+    try:
+        with open(file_path, 'r', errors='ignore') as f:
+            content = f.read()
+            # Simple heuristic: Look for VRAM base address or keyword
+            if "VRAM_BASE" in content or "0x8000" in content or "0x00008000" in content:
+                return True
+            # Also check for explicit header comment if we add one later
+            if "@GUI" in content:
+                return True
+    except Exception:
+        pass
+    return False
+
 def cmd_run(args):
     # Detect file type of the application
     app_path = os.path.abspath(args.file)
@@ -88,11 +104,16 @@ def cmd_run(args):
     
     ext = os.path.splitext(app_path)[1]
     
+    # Auto-Detect Mode
+    use_gui = detect_gui_needed(app_path)
+    mode_str = "gui" if use_gui else "headless"
+    sim_bin_name = "sim_gui" if use_gui else "sim_headless"
+    
     # Ensure simulator exists (Auto-build if needed)
-    sim_bin = os.path.join(BUILD_DIR, "sim_gui" if args.gui else "sim_headless")
+    sim_bin = os.path.join(BUILD_DIR, sim_bin_name)
     if not os.path.exists(sim_bin):
-        log("Simulator binary not found. Building first...")
-        args.mode = "gui" if args.gui else "headless"
+        log(f"Simulator binary ({sim_bin_name}) not found. Building first...")
+        args.mode = mode_str
         cmd_build(args)
     
     # Prepare Hex File
@@ -117,7 +138,7 @@ def cmd_run(args):
         sys.exit(1)
             
     # Run Simulation
-    log(f"Launching simulation [{'gui' if args.gui else 'headless'}]...")
+    log(f"Launching simulation [{mode_str}] (Auto-Detected)...")
     cmd = f"{sim_bin} +TESTFILE={hex_path}"
     
     try:
@@ -292,11 +313,10 @@ def main():
      - \033[96m--mode coverage\033[0m : Enable Verification Coverage (logs/coverage.dat).
 
   \033[93m4. RUN APPLICATION\033[0m
-     \033[1m./runner.py run <file> [--gui]\033[0m
+     \033[1m./runner.py run <file>\033[0m
      - Assembles and executes a RISC-V program.
      - \033[96m<file>\033[0m  : Path to assembly (.s) or machine code (.hex) file.
-     - \033[96m--gui\033[0m   : Launch in GUI mode (auto-builds if needed).
-     - \033[96m--gui\033[0m   : Launch in Graphical User Interface (GUI) mode.
+     - Note: GUI mode is auto-detected based on VRAM usage.
 
   \033[93m5. RUN TESTS\033[0m
      \033[1m./runner.py test [--count N] [--seed S]\033[0m
@@ -311,7 +331,7 @@ def main():
 
     epilog_text = """
 \033[1mQUICK START EXAMPLES:\033[0m
-  • Run the colors demo:       \033[96m./runner.py run --gui app/colors.s\033[0m
+  • Run the colors demo:       \033[96m./runner.py run app/colors.s\033[0m
   • Run all verify tests:      \033[96m./runner.py test\033[0m
   • Generate Coverage:         \033[96m./runner.py coverage\033[0m
   • Clean and rebuild:         \033[96m./runner.py clean && ./runner.py build --mode gui\033[0m
@@ -341,7 +361,7 @@ Maintainer: Ismail Melik
     # Command: run
     p_run = subparsers.add_parser("run", help="Run a RISC-V application (.s or .hex)")
     p_run.add_argument("file", help="Path to the application assembly (.s) or hex (.hex) file")
-    p_run.add_argument("--gui", action="store_true", help="Launch in Graphical User Interface (GUI) mode")
+    # p_run.add_argument("--gui", action="store_true", help="Launch in Graphical User Interface (GUI) mode") (Removed/Auto-detected)
     
     # Command: test
     p_test = subparsers.add_parser("test", help="Run the full regression test suite")

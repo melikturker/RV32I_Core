@@ -33,5 +33,7 @@ extern "C" void dpi_vram_write(int address, int data) {
          if (g_refresh_flag) {
              *g_refresh_flag = 1;
          }
+    } else if (address == 0x60000) { // DEBUG PRINT REG
+         std::cout << "[ASM DEBUG] Val: " << std::dec << data << std::endl;
     }
 }

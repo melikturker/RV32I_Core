@@ -2,6 +2,12 @@
 
 A synthesized, 5-stage pipelined RISC-V processor implementation in Verilog. This project provides a complete cycle-accurate simulation environment, including a verification suite with coverage analysis and a memory-mapped graphical output system.
 
+
+<p align="center">
+  <img src="docs/videos/audio_bars.gif" width="45%" />
+  <img src="docs/videos/bouncing_square.gif" width="45%" />
+</p>
+
 ## 📌 Navigation
 *   [Features](#-features)
 *   [Architecture](#-architecture)
@@ -46,7 +52,7 @@ The core relies on a comprehensive Verilog implementation located in `src/`.
 
 | Directory | Description |
 |-----------|-------------|
-| `app/`    | RISC-V Assembly applications and demos (Source & Hex). |
+| `app/`    | RISC-V Assembly applications and demos. |
 | `src/`    | Verilog source code for Core, Memory, and Peripherals. |
 | `sim/`    | C++ Simulation wrappers (Headless, GUI, Coverage). |
 | `tests/`  | Verification suite: Manual tests and Random Generator. |
@@ -64,14 +70,14 @@ Check system dependencies:
 ./runner.py check
 ```
 
-### 2. Run Applications (GUI)
-Run the provided demos to visualize processor activity:
+### 2. Run Applications
+Run the provided demos to visualize processor activity (GUI auto-launches if VRAM is used):
 ```bash
 # Colors Demo
-./runner.py run --gui app/colors.s
+./runner.py run app/colors.s
 
 # Audio Bars Visualization
-./runner.py run --gui app/audio_bars.s
+./runner.py run app/audio_bars.s
 ```
 
 ### 3. Run Regression Tests
@@ -98,10 +104,29 @@ Use the `coverage` command to generate an annotated HTML-like report of the Veri
 
 | Application | Source | Description |
 |-------------|--------|-------------|
-| **Colors** | `app/colors.s` | Renders a full-screen color gradient, testing store operations and nested loops. |
-| **Audio Bars** | `app/audio_bars.s` | Simulates a spectrum analyzer with decay physics. Originally ported from ARM Cortex M0. |
+| **Colors** | `app/colors.s` | Cycles through full-screen colors (R/G/B), verifying VRAM write performance. |
+| **XOR Patterns** | `app/xor_patterns.s` | Generates fractal textures using bitwise XOR/OR logic on coordinates. |
+| **Dream** | `app/dream.s` | Advanced plasma animation with independent RGB flow and alpha fluctuation. |
+| **Audio Bars** | `app/audio_bars.s` | Spectrum analyzer simulation with pseudorandomly changing heights and colors. |
+| **Bouncing Square** | `app/bouncing_square.s` | Configurable square (25px) that changes color on bounce and paints trails. |
+
+### 🖼️ Visual Gallery
+
+| Colors | XOR Patterns |
+| :---: | :---: |
+| ![Colors](docs/videos/colors.gif) | ![XOR](docs/videos/xor_patterns.gif) |
+
+| Dream (Showcase) | Audio Bars |
+| :---: | :---: |
+| ![Dream](docs/videos/dream.gif) | ![Audio](docs/videos/audio_bars.gif) |
+
+| Bouncing Square | |
+| :---: | :---: |
+| ![Square](docs/videos/bouncing_square.gif) | |
 
 See [app/README.md](app/README.md) for more details.
 
 ## 📜 License
-Open Source. Maintained by **Ismail Melik**.
+This project is licensed under the **MIT License**. See [LICENSE](LICENSE) for details.
+
+Maintained by **Ismail Melik**.

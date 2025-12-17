@@ -199,6 +199,19 @@ def assemble(input_file, output_file):
                     imm11 = (offset >> 11) & 1
                     mach_code = (imm12 << 31) | (imm10_5 << 25) | (rs2 << 20) | (rs1 << 15) | (4 << 12) | (imm4_1 << 8) | (imm11 << 7) | 0x63
 
+            elif op == 'bge':
+                rs1 = parse_reg(parts[1])
+                rs2 = parse_reg(parts[2])
+                label = parts[3]
+                if label in labels:
+                    target = labels[label]
+                    offset = target - pc
+                    imm12 = (offset >> 12) & 1
+                    imm10_5 = (offset >> 5) & 0x3F
+                    imm4_1 = (offset >> 1) & 0xF
+                    imm11 = (offset >> 11) & 1
+                    mach_code = (imm12 << 31) | (imm10_5 << 25) | (rs2 << 20) | (rs1 << 15) | (5 << 12) | (imm4_1 << 8) | (imm11 << 7) | 0x63
+
             elif op == 'j':
                 label = parts[1]
                 if label in labels:
@@ -236,14 +249,149 @@ def assemble(input_file, output_file):
                 rs1 = parse_reg(parts[2])
                 imm = parse_imm(parts[3])
                 mach_code = (to_hex(imm, 12) << 20) | (rs1 << 15) | (7 << 12) | (rd << 7) | 0x13
+
+            elif op == 'ori':
+                rd = parse_reg(parts[1])
+                rs1 = parse_reg(parts[2])
+                imm = parse_imm(parts[3])
+                mach_code = (to_hex(imm, 12) << 20) | (rs1 << 15) | (6 << 12) | (rd << 7) | 0x13
+
+            elif op == 'or':
+                rd = parse_reg(parts[1])
+                rs1 = parse_reg(parts[2])
+                rs2 = parse_reg(parts[3])
+                mach_code = (0 << 25) | (rs2 << 20) | (rs1 << 15) | (6 << 12) | (rd << 7) | 0x33
             
             elif op == 'lui':
                 rd = parse_reg(parts[1])
                 imm_val = parse_imm(parts[2])
                 mach_code = (to_hex(imm_val, 20) << 12) | (rd << 7) | 0x37
 
-            elif op == 'ebreak':
-                mach_code = 0x00100073
+            elif op == 'jalr':
+                rd = parse_reg(parts[1])
+                rs1 = parse_reg(parts[2])
+                imm = parse_imm(parts[3])
+                mach_code = (to_hex(imm, 12) << 20) | (rs1 << 15) | (0 << 12) | (rd << 7) | 0x67
+
+            elif op == 'auipc':
+                rd = parse_reg(parts[1])
+                imm_val = parse_imm(parts[2])
+                mach_code = (to_hex(imm_val, 20) << 12) | (rd << 7) | 0x17
+            
+            elif op == 'fence':
+                # Simplified FENCE (pred=succ=PIPO)
+                mach_code = 0x0FF0000F
+            
+            elif op == 'ecall':
+                mach_code = 0x00000073
+
+            elif op == 'csrrw':
+                rd = parse_reg(parts[1])
+                csr = parse_imm(parts[2])
+                rs1 = parse_reg(parts[3])
+                mach_code = (csr << 20) | (rs1 << 15) | (1 << 12) | (rd << 7) | 0x73
+
+            elif op == 'csrrs':
+                rd = parse_reg(parts[1])
+                csr = parse_imm(parts[2])
+                rs1 = parse_reg(parts[3])
+                mach_code = (csr << 20) | (rs1 << 15) | (2 << 12) | (rd << 7) | 0x73
+            
+            # --- LOGIC & SHIFTS (R-Type) ---
+            elif op == 'and':
+                rd = parse_reg(parts[1])
+                rs1 = parse_reg(parts[2])
+                rs2 = parse_reg(parts[3])
+                mach_code = (0 << 25) | (rs2 << 20) | (rs1 << 15) | (7 << 12) | (rd << 7) | 0x33
+
+            elif op == 'sll':
+                rd = parse_reg(parts[1])
+                rs1 = parse_reg(parts[2])
+                rs2 = parse_reg(parts[3])
+                mach_code = (0 << 25) | (rs2 << 20) | (rs1 << 15) | (1 << 12) | (rd << 7) | 0x33
+
+            elif op == 'srl':
+                rd = parse_reg(parts[1])
+                rs1 = parse_reg(parts[2])
+                rs2 = parse_reg(parts[3])
+                mach_code = (0 << 25) | (rs2 << 20) | (rs1 << 15) | (5 << 12) | (rd << 7) | 0x33
+
+            elif op == 'sra':
+                rd = parse_reg(parts[1])
+                rs1 = parse_reg(parts[2])
+                rs2 = parse_reg(parts[3])
+                mach_code = (0x20 << 25) | (rs2 << 20) | (rs1 << 15) | (5 << 12) | (rd << 7) | 0x33
+            
+            # --- COMPARE (R-Type) ---
+            elif op == 'slt':
+                rd = parse_reg(parts[1])
+                rs1 = parse_reg(parts[2])
+                rs2 = parse_reg(parts[3])
+                mach_code = (0 << 25) | (rs2 << 20) | (rs1 << 15) | (2 << 12) | (rd << 7) | 0x33
+
+            elif op == 'sltu':
+                rd = parse_reg(parts[1])
+                rs1 = parse_reg(parts[2])
+                rs2 = parse_reg(parts[3])
+                mach_code = (0 << 25) | (rs2 << 20) | (rs1 << 15) | (3 << 12) | (rd << 7) | 0x33
+
+            # --- LOGIC & SHIFTS (I-Type) ---
+            elif op == 'xori':
+                rd = parse_reg(parts[1])
+                rs1 = parse_reg(parts[2])
+                imm = parse_imm(parts[3])
+                mach_code = (to_hex(imm, 12) << 20) | (rs1 << 15) | (4 << 12) | (rd << 7) | 0x13
+            
+            elif op == 'slti':
+                rd = parse_reg(parts[1])
+                rs1 = parse_reg(parts[2])
+                imm = parse_imm(parts[3])
+                mach_code = (to_hex(imm, 12) << 20) | (rs1 << 15) | (2 << 12) | (rd << 7) | 0x13
+
+            elif op == 'sltiu':
+                rd = parse_reg(parts[1])
+                rs1 = parse_reg(parts[2])
+                imm = parse_imm(parts[3])
+                mach_code = (to_hex(imm, 12) << 20) | (rs1 << 15) | (3 << 12) | (rd << 7) | 0x13
+            
+            elif op == 'srai':
+                rd = parse_reg(parts[1])
+                rs1 = parse_reg(parts[2])
+                shamt = parse_imm(parts[3])
+                mach_code = (0x20 << 25) | (shamt << 20) | (rs1 << 15) | (5 << 12) | (rd << 7) | 0x13
+
+            # --- LOADS (I-Type) ---
+            elif op in ['lb', 'lh', 'lbu', 'lhu']:
+                rd = parse_reg(parts[1])
+                match = re.match(r'(.+)\((.+)\)', parts[2])
+                if match:
+                    imm = parse_imm(match.group(1))
+                    rs1 = parse_reg(match.group(2))
+                    # funct3 mapping
+                    f3 = 0
+                    if op == 'lh': f3 = 1
+                    if op == 'lbu': f3 = 4
+                    if op == 'lhu': f3 = 5
+                    if op == 'lb': f3 = 0
+                    mach_code = (to_hex(imm, 12) << 20) | (rs1 << 15) | (f3 << 12) | (rd << 7) | 0x03
+
+            # --- STORES (S-Type) ---
+            elif op in ['sb', 'sh']:
+                rs2 = parse_reg(parts[1])
+                match = re.match(r'(.+)\((.+)\)', parts[2])
+                if match:
+                    imm = parse_imm(match.group(1))
+                    rs1 = parse_reg(match.group(2))
+                    f3 = 0
+                    if op == 'sh': f3 = 1
+                    if op == 'sb': f3 = 0
+                    imm11_5 = (imm >> 5) & 0x7F
+                    imm4_0 = imm & 0x1F
+                    mach_code = (imm11_5 << 25) | (rs2 << 20) | (rs1 << 15) | (f3 << 12) | (imm4_0 << 7) | 0x23
+
+            elif op == '.word':
+                val = parse_imm(parts[1])
+                mach_code = val & 0xFFFFFFFF
             
             if mach_code == 0 and op != 'li':
                 pass # Already printed warning if needed

@@ -156,8 +156,8 @@ def cmd_test(args):
     sim_bin = os.path.join(BUILD_DIR, "sim_headless")
     if not os.path.exists(sim_bin):
         log("Building headless simulator...")
-        args.mode = "headless"
-        cmd_build(args)
+        build_args = argparse.Namespace(mode="headless")
+        cmd_build(build_args)
 
     print("\n🧪 Running Regression Tests...")
     print("-" * 65)
@@ -166,44 +166,75 @@ def cmd_test(args):
     
     tests = []
     
-    # 0. Generate Random Test
-    random_hex = os.path.join(BUILD_DIR, "random_test.hex")
-    gen_script = os.path.join(PROJECT_ROOT, "tests", "test_gen.py")
+    # Determine which test categories to run
+    run_functional = args.functionality or (not args.functionality and not args.performance)
+    run_performance = args.performance or (not args.functionality and not args.performance)
     
-    if os.path.exists(gen_script):
-        # Generate random instructions
-        seed_arg = f"--seed {args.seed}" if args.seed is not None else ""
-        cnt_arg = f"--count {args.count}"
-        cmd_gen = f"python3 {gen_script} --out {random_hex} {cnt_arg} {seed_arg}"
+    # === FUNCTIONALITY TESTS ===
+    if run_functional:
+        # 1. Random Corner Case Test
+        random_hex = os.path.join(BUILD_DIR, "random_corner_test.hex")
+        gen_script = os.path.join(TOOLS_DIR, "random_instruction_test_gen.py")
         
-        # log(f"Generating Random Test: {cmd_gen}")
-        try:
-            subprocess.check_call(cmd_gen, shell=True, cwd=PROJECT_ROOT, stdout=subprocess.DEVNULL)
-            tests.append(("Random Instruction Test (Generated)", random_hex))
-        except subprocess.CalledProcessError:
-             log_error("Failed to generate random test.")
+        if os.path.exists(gen_script):
+            seed_arg = f"--seed {args.seed}" if args.seed is not None else ""
+            cmd_gen = f"python3 {gen_script} --out {random_hex} --count {args.count} {seed_arg}"
+            
+            try:
+                subprocess.check_call(cmd_gen, shell=True, cwd=PROJECT_ROOT, stdout=subprocess.DEVNULL)
+                tests.append(("Random Corner Case Test", random_hex, "functional"))
+            except subprocess.CalledProcessError:
+                 log_error("Failed to generate random test.")
+        
+        # 2. Functional Tests (hazard, corner, matrix, ISA coverage)
+        func_dir = os.path.join(PROJECT_ROOT, "tests", "functional")
+        if os.path.exists(func_dir):
+            # Assemble .s files first
+            assembler_script = os.path.join(TOOLS_DIR, "assembler.py")
+            for f in sorted(os.listdir(func_dir)):
+                if f.endswith(".s"):
+                    # Assemble to hex
+                    asm_path = os.path.join(func_dir, f)
+                    hex_name = f.replace(".s", ".hex")
+                    hex_path = os.path.join(func_dir, hex_name)
+                    
+                    try:
+                        subprocess.check_call(
+                            f"python3 {assembler_script} {asm_path} {hex_path}",
+                            shell=True, cwd=PROJECT_ROOT, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+                        )
+                    except subprocess.CalledProcessError:
+                        log_error(f"Failed to assemble {f}")
+                        continue
+            
+            # Now collect all hex files
+            for f in sorted(os.listdir(func_dir)):
+                if f.endswith(".hex"):
+                    tests.append((f, os.path.join(func_dir, f), "functional"))
     
-    # 1. Default Instruction Test (instr.txt)
-    default_test = os.path.join(SRC_DIR, "memory", "instructions", "instr.txt")
-    if os.path.exists(default_test):
-        tests.append(("Default Instruction Test", default_test))
-    
-    # 2. Manual Hex Tests
-    manual_dir = os.path.join(PROJECT_ROOT, "tests", "manual")
-    if os.path.exists(manual_dir):
-        for f in sorted(os.listdir(manual_dir)):
-            if f.endswith(".hex"):
-                tests.append((f, os.path.join(manual_dir, f)))
+    # === PERFORMANCE TESTS ===
+    if run_performance:
+        # Performance hex tests (future: benchmark tests)
+        perf_dir = os.path.join(PROJECT_ROOT, "tests", "performance")
+        if os.path.exists(perf_dir):
+            for f in sorted(os.listdir(perf_dir)):
+                if f.endswith(".hex"):
+                    tests.append((f, os.path.join(perf_dir, f), "performance"))
+
+    if not tests:
+        log_error("No tests found to run.")
+        return
 
     passed_count = 0
     failed_count = 0
     
-    for test_name, test_path in tests:
+    for test_name, test_path, category in tests:
         cmd = f"{sim_bin} +TESTFILE={test_path}"
         
-        # Run process and capture output
         try:
-            result = subprocess.run(cmd, shell=True, cwd=PROJECT_ROOT, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+            result = subprocess.run(cmd, shell=True, cwd=PROJECT_ROOT, 
+                                  stdout=subprocess.PIPE, stderr=subprocess.STDOUT, 
+                                  text=True, timeout=10)
             output = result.stdout
             
             if "Simulation PASSED" in output and result.returncode == 0:
@@ -213,6 +244,66 @@ def cmd_test(args):
                 print(f"{test_name:<45} | \033[91m❌ FAIL\033[0m")
                 failed_count += 1
                 
+                # Create logs directory if it doesn't exist
+                log_dir = os.path.join(PROJECT_ROOT, "logs")
+                os.makedirs(log_dir, exist_ok=True)
+                
+                # Generate log filename with timestamp
+                import datetime
+                timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+                log_file = os.path.join(log_dir, f"test_fail_{test_name.replace('.hex', '')}_{timestamp}.log")
+                
+                # Write detailed log
+                with open(log_file, 'w') as f:
+                    f.write(f"=== TEST FAILURE REPORT ===\n")
+                    f.write(f"Test: {test_name}\n")
+                    f.write(f"Category: {category}\n")
+                    f.write(f"Test File: {test_path}\n")
+                    f.write(f"Exit Code: {result.returncode}\n")
+                    f.write(f"Timestamp: {timestamp}\n")
+                    f.write(f"\n=== SIMULATION OUTPUT ===\n")
+                    f.write(output)
+                    f.write(f"\n\n=== ANALYSIS ===\n")
+                    
+                    # Extract useful debug info
+                    if "TIMEOUT" in output or result.returncode == -9:
+                        f.write("Likely cause: TIMEOUT - simulation did not complete in time\n")
+                        f.write("Suggestion: Check for infinite loops or increase timeout value\n")
+                    elif "Segmentation fault" in output:
+                        f.write("Likely cause: Memory access violation\n")
+                    elif result.returncode != 0:
+                        f.write(f"Non-zero exit code: {result.returncode}\n")
+                    
+                    f.write("\n=== LAST 20 LINES ===\n")
+                    output_lines = output.strip().split('\n')
+                    last_lines = output_lines[-20:] if len(output_lines) > 20 else output_lines
+                    f.write('\n'.join(last_lines))
+                
+                # Print summary to console
+                print(f"  \033[93m📝 Detailed log saved: {log_file}\033[0m")
+                print(f"  Exit code: {result.returncode}\n")
+                
+        except subprocess.TimeoutExpired:
+            print(f"{test_name:<45} | \033[93m⏱️  TIMEOUT\033[0m")
+            failed_count += 1
+            
+            # Log timeout
+            log_dir = os.path.join(PROJECT_ROOT, "logs")
+            os.makedirs(log_dir, exist_ok=True)
+            import datetime
+            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            log_file = os.path.join(log_dir, f"test_timeout_{test_name.replace('.hex', '')}_{timestamp}.log")
+            
+            with open(log_file, 'w') as f:
+                f.write(f"=== TEST TIMEOUT ===\n")
+                f.write(f"Test: {test_name}\n")
+                f.write(f"Timeout: 10 seconds\n")
+                f.write(f"Likely causes:\n")
+                f.write(f"  - Infinite loop in test code\n")
+                f.write(f"  - Deadlock in pipeline\n")
+                f.write(f"  - Test requires more time (increase timeout)\n")
+            
+            print(f"  \033[93m📝 Timeout log saved: {log_file}\033[0m\n")
         except Exception as e:
             print(f"{test_name:<45} | \033[91m❌ ERR \033[0m")
             failed_count += 1
@@ -319,10 +410,13 @@ def main():
      - Note: GUI mode is auto-detected based on VRAM usage.
 
   \033[93m5. RUN TESTS\033[0m
-     \033[1m./runner.py test [--count N] [--seed S]\033[0m
-     - Executes the full regression suite.
-     - \033[96m--count N\033[0m : Number of random instructions to generate (default: 100).
-     - \033[96m--seed S\033[0m  : Seed for random generation (optional).
+     \033[1m./runner.py test [OPTIONS]\033[0m
+     - Executes regression test suite (functionality + performance).
+     - \033[96m--functionality\033[0m  : Run only functional correctness tests.
+     - \033[96m--performance\033[0m    : Run only performance benchmarks.
+     - \033[96m--count N\033[0m        : Number of random instructions (default: 100).
+     - \033[96m--seed S\033[0m         : Seed for random generation (optional).
+     - Note: If no filter specified, runs ALL tests.
   \033[93m6. COVERAGE REPORT\033[0m
      \033[1m./runner.py coverage\033[0m
      - Builds coverage binary, runs simulation, and generates report.
@@ -332,7 +426,9 @@ def main():
     epilog_text = """
 \033[1mQUICK START EXAMPLES:\033[0m
   • Run the colors demo:       \033[96m./runner.py run app/colors.s\033[0m
-  • Run all verify tests:      \033[96m./runner.py test\033[0m
+  • Run all tests:             \033[96m./runner.py test\033[0m
+  • Run functional tests only: \033[96m./runner.py test --functionality\033[0m
+  • Run performance tests:     \033[96m./runner.py test --performance\033[0m
   • Generate Coverage:         \033[96m./runner.py coverage\033[0m
   • Clean and rebuild:         \033[96m./runner.py clean && ./runner.py build --mode gui\033[0m
 
@@ -364,9 +460,11 @@ Maintainer: Ismail Melik
     # p_run.add_argument("--gui", action="store_true", help="Launch in Graphical User Interface (GUI) mode") (Removed/Auto-detected)
     
     # Command: test
-    p_test = subparsers.add_parser("test", help="Run the full regression test suite")
-    p_test.add_argument("--count", type=int, default=100, help="Number of random instructions")
+    p_test = subparsers.add_parser("test", help="Run the regression test suite")
+    p_test.add_argument("--count", type=int, default=100, help="Number of random instructions (default: 100)")
     p_test.add_argument("--seed", type=int, help="Random seed for reproducibility")
+    p_test.add_argument("--functionality", action="store_true", help="Run only functional tests")
+    p_test.add_argument("--performance", action="store_true", help="Run only performance tests")
     
     # Command: coverage
     p_cov = subparsers.add_parser("coverage", help="Run & Generate Coverage Report")

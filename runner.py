@@ -139,13 +139,38 @@ def cmd_run(args):
             
     # Run Simulation
     log(f"Launching simulation [{mode_str}] (Auto-Detected)...")
-    cmd = f"{sim_bin} +TESTFILE={hex_path}"
+    
+    # Add performance monitoring if requested
+    perf_flag = "+PERF_ENABLE" if args.perf else ""
+    cmd = f"{sim_bin} +TESTFILE={hex_path} {perf_flag}".strip()
     
     try:
-        subprocess.check_call(cmd, shell=True, cwd=PROJECT_ROOT)
-    except subprocess.CalledProcessError:
-        log_error("Simulation failed.")
-        sys.exit(1)
+        result = subprocess.run(cmd, shell=True, cwd=PROJECT_ROOT)
+        
+        # Show performance report if --perf enabled and simulation succeeded
+        if args.perf and result.returncode == 0:
+            perf_log = os.path.join(PROJECT_ROOT, "logs", "perf_counters.txt")
+            if os.path.exists(perf_log):
+                print("\n" + "="*60)
+                log("Performance Report:")
+                print("="*60)
+                
+                # Import and call performance_report
+                sys.path.insert(0, TOOLS_DIR)
+                from performance_report import generate_report
+                
+                try:
+                    app_name = os.path.splitext(os.path.basename(args.file))[0]
+                    generate_report(perf_file=perf_log, test_name=app_name)
+                except Exception as e:
+                    log_error(f"Report generation failed: {e}")
+            else:
+                log_error("Performance log not found. Make sure simulation completed successfully.")
+        
+        if result.returncode != 0:
+            log_error("Simulation failed.")
+            sys.exit(result.returncode)
+            
     except KeyboardInterrupt:
         print("\n")
         log("Simulation interrupted by user.")
@@ -474,6 +499,7 @@ Maintainer: Ismail Melik
     # Command: run
     p_run = subparsers.add_parser("run", help="Run a RISC-V application (.s or .hex)")
     p_run.add_argument("file", help="Path to the application assembly (.s) or hex (.hex) file")
+    p_run.add_argument("--perf", action="store_true", help="Enable performance monitoring and show report after execution")
     # p_run.add_argument("--gui", action="store_true", help="Launch in Graphical User Interface (GUI) mode") (Removed/Auto-detected)
     
     # Command: test

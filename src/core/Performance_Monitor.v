@@ -15,37 +15,30 @@
 module Performance_Monitor (
     input wire clk,
     input wire rst,
-    input wire perf_enable,          // Enable performance counting
+    input wire perf_enable,
     
-    // Instruction tracking
-    input wire instruction_valid,    // Valid instruction in pipeline
-    input wire instruction_retired,  // Instruction completed (reached WB)
-    
-    // Pipeline events
-    input wire stall,                // Pipeline stall
-    input wire bubble,               // NOP injection (bubble)
-    
-    // Forwarding
-    input wire forward_ex_to_ex,     // EX->EX forward
-    input wire forward_mem_to_ex,    // MEM->EX forward
-    input wire raw_hazard_detected,  // RAW hazard occurred
-    
-    // Branch tracking
-    input wire branch_instruction,   // Branch/jump instruction
-    input wire branch_taken,         // Branch was taken
-    input wire branch_mispredicted   // Branch misprediction (flush)
+    // Performance signals from Core
+    input wire instruction_retired,
+    input wire pipeline_stall,
+    input wire pipeline_bubble,
+    input wire raw_hazard_detected,
+    input wire forward_ex_to_ex,
+    input wire forward_mem_to_ex,
+    input wire conditional_branch,
+    input wire unconditional_branch,
+    input wire conditional_mispred
 );
 
-    // Performance counters
+    // Performance Counters
     reg [31:0] cycle_count;
     reg [31:0] instruction_count;
     reg [31:0] stall_count;
     reg [31:0] bubble_count;
     reg [31:0] forward_count;
     reg [31:0] raw_hazard_count;
-    reg [31:0] branch_count;
-    reg [31:0] branch_taken_count;
-    reg [31:0] branch_mispred_count;
+    reg [31:0] cond_branch_count;
+    reg [31:0] uncond_branch_count;
+    reg [31:0] cond_mispred_count;
     
     // Counter logic
     always @(posedge clk) begin
@@ -56,43 +49,36 @@ module Performance_Monitor (
             bubble_count <= 0;
             forward_count <= 0;
             raw_hazard_count <= 0;
-            branch_count <= 0;
-            branch_taken_count <= 0;
-            branch_mispred_count <= 0;
+            cond_branch_count <= 0;
+            uncond_branch_count <= 0;
+            cond_mispred_count <= 0;
         end else if (perf_enable) begin
             // Count cycles (perf_enable controlled externally to stop when program ends)
             cycle_count <= cycle_count + 1;
             
-            // Count retired instructions
-            if (instruction_retired)
+            if (instruction_retired && perf_enable)
                 instruction_count <= instruction_count + 1;
             
-            // Count stalls
-            if (stall)
+            if (pipeline_stall && perf_enable)
                 stall_count <= stall_count + 1;
             
-            // Count bubbles
-            if (bubble)
+            if (pipeline_bubble && perf_enable)
                 bubble_count <= bubble_count + 1;
-            
-            // Count forwards
-            if (forward_ex_to_ex || forward_mem_to_ex)
-                forward_count <= forward_count + 1;
-            
-            // Count RAW hazards
-            if (raw_hazard_detected)
+        
+            if (raw_hazard_detected && perf_enable)
                 raw_hazard_count <= raw_hazard_count + 1;
             
-            // Count branches
-            if (branch_instruction) begin
-                branch_count <= branch_count + 1;
-                if (branch_taken)
-                    branch_taken_count <= branch_taken_count + 1;
-            end
+            if ((forward_ex_to_ex || forward_mem_to_ex) && perf_enable)
+                forward_count <= forward_count + 1;
             
-            // Count mispredictions
-            if (branch_mispredicted)
-                branch_mispred_count <= branch_mispred_count + 1;
+            if (conditional_branch && perf_enable)
+                cond_branch_count <= cond_branch_count + 1;
+            
+            if (unconditional_branch && perf_enable)
+                uncond_branch_count <= uncond_branch_count + 1;
+            
+            if (conditional_mispred && perf_enable)
+                cond_mispred_count <= cond_mispred_count + 1;
         end
     end
     
@@ -103,9 +89,11 @@ module Performance_Monitor (
         begin
             if (perf_enable) begin
                 // Adjust cycle count: subtract 10 for zero detection overhead
+                /* verilator lint_off BLKSEQ */
                 adjusted_cycles = (cycle_count > 10) ? (cycle_count - 10) : cycle_count;
                 
-                f = $fopen("logs/perf_counters.txt", "w");
+                f = $fopen("logs/perf_counters.txt", "w"); // Blocking OK for system tasks
+                /* verilator lint_on BLKSEQ */
                 if (f) begin
                     $fwrite(f, "cycles=%0d\n", adjusted_cycles);
                     $fwrite(f, "instructions=%0d\n", instruction_count);
@@ -113,9 +101,9 @@ module Performance_Monitor (
                     $fwrite(f, "bubbles=%0d\n", bubble_count);
                     $fwrite(f, "forwards=%0d\n", forward_count);
                     $fwrite(f, "raw_hazards=%0d\n", raw_hazard_count);
-                    $fwrite(f, "branches=%0d\n", branch_count);
-                    $fwrite(f, "branch_taken=%0d\n", branch_taken_count);
-                    $fwrite(f, "branch_mispred=%0d\n", branch_mispred_count);
+                    $fwrite(f, "cond_branches=%0d\n", cond_branch_count);
+                    $fwrite(f, "uncond_branches=%0d\n", uncond_branch_count);
+                    $fwrite(f, "cond_mispred=%0d\n", cond_mispred_count);
                     $fclose(f);
                     $display("[PERF] Metrics saved to logs/perf_counters.txt");
                 end else begin

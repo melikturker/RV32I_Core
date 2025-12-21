@@ -34,9 +34,9 @@ def calculate_derived_metrics(raw_metrics):
     bubbles = raw_metrics.get('BUBBLES', 0)
     forwards = raw_metrics.get('FORWARDS', 0)
     raw_hazards = raw_metrics.get('RAW_HAZARDS', 0)
-    branches = raw_metrics.get('BRANCHES', 0)
-    branch_taken = raw_metrics.get('BRANCH_TAKEN', 0)
-    branch_mispred = raw_metrics.get('BRANCH_MISPRED', 0)
+    cond_branches = raw_metrics.get('COND_BRANCHES', 0)
+    uncond_branches = raw_metrics.get('UNCOND_BRANCHES', 0)
+    cond_mispred = raw_metrics.get('COND_MISPRED', 0)
     
     # Avoid division by zero
     if instructions == 0:
@@ -47,12 +47,20 @@ def calculate_derived_metrics(raw_metrics):
     stall_rate = (stalls / cycles * 100) if cycles > 0 else 0
     utilization = ((cycles - stalls - bubbles) / cycles * 100) if cycles > 0 else 0
     
-    # Forward Success Rate: (RAW hazards resolved by forwarding) / (Total RAW hazards)
-    # forwards already counts successful forwards, raw_hazards is total detected
+    # Forward Success Rate
     forward_rate = (forwards / raw_hazards * 100) if raw_hazards > 0 else 100.0
     
-    branch_accuracy = ((branches - branch_mispred) / branches * 100) if branches > 0 else 100.0
-    avg_branch_penalty = (branch_mispred * 2) / branches if branches > 0 else 0  # 2 cycles per mispred
+    # Branch metrics
+    total_branches = cond_branches + uncond_branches
+    
+    # Conditional branch accuracy (only meaningful for conditional)
+    cond_accuracy = ((cond_branches - cond_mispred) / cond_branches * 100) if cond_branches > 0 else 100.0
+    
+    # Overall branch penalty: 
+    # - All unconditional have 2 cycle penalty (always "mispredicted")
+    # - Conditional mispredictions have 2 cycle penalty
+    total_penalties = uncond_branches + cond_mispred
+    avg_branch_penalty = (total_penalties * 2) / total_branches if total_branches > 0 else 0
     
     return {
         'Clock Cycles': cycles,
@@ -61,7 +69,9 @@ def calculate_derived_metrics(raw_metrics):
         'Stall Rate': f"{stall_rate:.1f}%",
         'Pipeline Utilization': f"{utilization:.1f}%",
         'Forward Rate': f"{forward_rate:.1f}%",
-        'Branch Prediction Accuracy': f"{branch_accuracy:.1f}%",
+        'Conditional Branches': cond_branches,
+        'Conditional Prediction Accuracy': f"{cond_accuracy:.1f}%",
+        'Unconditional Jumps (JAL/JALR)': uncond_branches,
         'Avg Branch Penalty': f"{avg_branch_penalty:.2f} cycles"
     }
 

@@ -72,7 +72,8 @@ def assemble(input_file, output_file):
     # Pass 1: Find Labels, Constants, and Clean
     pc = 0
     for line in lines:
-        line = line.split('//')[0].strip()
+        # Remove both // and # comments
+        line = line.split('//')[0].split('#')[0].strip()
         if not line: continue
         
         # Handle .eqv constants
@@ -170,6 +171,38 @@ def assemble(input_file, output_file):
                 rs1 = parse_reg(parts[2])
                 rs2 = parse_reg(parts[3])
                 mach_code = (0x20 << 25) | (rs2 << 20) | (rs1 << 15) | (0 << 12) | (rd << 7) | 0x33
+
+            elif op == 'beq':
+                # beq rs1, rs2, label
+                rs1 = parse_reg(parts[1])
+                rs2 = parse_reg(parts[2])
+                label = parts[3]
+                if label in labels:
+                    target = labels[label]
+                    offset = target - pc
+                    imm12 = (offset >> 12) & 1
+                    imm10_5 = (offset >> 5) & 0x3F
+                    imm4_1 = (offset >> 1) & 0xF
+                    imm11 = (offset >> 11) & 1
+                    mach_code = (imm12 << 31) | (imm10_5 << 25) | (rs2 << 20) | (rs1 << 15) | (0 << 12) | (imm4_1 << 8) | (imm11 << 7) | 0x63
+                else:
+                    print(f"Error: Label '{label}' not found for beq at PC={pc}")
+
+            elif op == 'bne':
+                # bne rs1, rs2, label
+                rs1 = parse_reg(parts[1])
+                rs2 = parse_reg(parts[2])
+                label = parts[3]
+                if label in labels:
+                    target = labels[label]
+                    offset = target - pc
+                    imm12 = (offset >> 12) & 1
+                    imm10_5 = (offset >> 5) & 0x3F
+                    imm4_1 = (offset >> 1) & 0xF
+                    imm11 = (offset >> 11) & 1
+                    mach_code = (imm12 << 31) | (imm10_5 << 25) | (rs2 << 20) | (rs1 << 15) | (1 << 12) | (imm4_1 << 8) | (imm11 << 7) | 0x63
+                else:
+                    print(f"Error: Label '{label}' not found for bne at PC={pc}")
 
             elif op == 'bnez':
                 # bnez rs1, label -> bne rs1, x0, label
@@ -285,6 +318,9 @@ def assemble(input_file, output_file):
             elif op == 'ecall':
                 mach_code = 0x00000073
 
+            elif op == 'ebreak':
+                mach_code = 0x00100073
+
             elif op == 'csrrw':
                 rd = parse_reg(parts[1])
                 csr = parse_imm(parts[2])
@@ -389,15 +425,21 @@ def assemble(input_file, output_file):
                     imm4_0 = imm & 0x1F
                     mach_code = (imm11_5 << 25) | (rs2 << 20) | (rs1 << 15) | (f3 << 12) | (imm4_0 << 7) | 0x23
 
+            
             elif op == '.word':
                 val = parse_imm(parts[1])
                 mach_code = val & 0xFFFFFFFF
             
-            if mach_code == 0 and op != 'li':
-                pass # Already printed warning if needed
+            else:
+                # Unrecognized instruction!
+                print(f"ERROR: Unrecognized instruction '{op}' at PC={pc}: {line}")
+                print(f"       This instruction is not supported by the assembler.")
+                raise ValueError(f"Unsupported instruction: {op}")
 
         except Exception as e:
-            print(f"Error assembling line {pc}: {line} -> {e}")
+            print(f"Error assembling line at PC={pc}: {line}")
+            print(f"  Exception: {e}")
+            raise  # Re-raise to stop assembly
             
         hex_output.append(f"{mach_code:08x}")
 

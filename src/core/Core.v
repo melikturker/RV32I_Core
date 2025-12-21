@@ -103,6 +103,11 @@ module Core (clk, rst, perf_enable, video_addr, video_data, video_we);
 	wire i_mem_busy = 1'b0;
 	wire d_mem_busy = 1'b0;
 	
+	// Stall_Unit expects we_MEM and we_WB (write enable signals for each stage)
+	// These are equivalent to we_reg signals from pipeline registers
+	wire we_MEM = we_reg_MEM;  // From EX_MEM register
+	wire we_WB = we_reg_WB;    // From MEM_WB register
+	
 	Stall_Unit SU(nop_ID, nop_EX, nop_MEM, we_ID, we_EX, rev_PC, we_PC, 
 	              we_MEM, we_WB, stall_FU, i_mem_busy, d_mem_busy, flush, rst); 
 	
@@ -215,15 +220,18 @@ module Core (clk, rst, perf_enable, video_addr, video_data, video_we);
 			valid_ID <= valid_ID;  // Hold
 	end
 	
-	// EX: Propagate or clear on NOP/flush
+	// EX: Propagate or clear on NOP
+	// CRITICAL FIX: When flush happens, ID becomes NOP but EX instruction
+	// is still valid! Don't overwrite with valid_ID=0 from flushed ID.
+	// Solution: Only update if we_EX AND no flush, or hold.
 	reg valid_EX;
 	always @(posedge clk) begin
-		if (rst || nop_EX || flush)
+		if (rst || nop_EX)
 			valid_EX <= 0;
-		else if (we_EX)
+		else if (we_EX && !flush)  // Don't take 0 from flushed ID!
 			valid_EX <= valid_ID;
 		else
-			valid_EX <= valid_EX;  // Hold
+			valid_EX <= valid_EX;  // Hold (including during flush)
 	end
 	
 	// MEM: Propagate or clear on NOP
@@ -244,7 +252,7 @@ module Core (clk, rst, perf_enable, video_addr, video_data, video_we);
 			valid_WB <= valid_MEM;
 	end
 	
-	// Retired: Simply check valid at WB
+	// Retired: Count valid instructions at WB
 	wire instruction_retired = valid_WB;
 	
 	// Track PC_IF for program finish detection
@@ -271,18 +279,33 @@ module Core (clk, rst, perf_enable, video_addr, video_data, video_we);
 	wire forward_ex_to_ex = FU_sel1;
 	wire forward_mem_to_ex = FU_sel2;
 	
-	// 6. Branch: Decode from instruction opcode
+	// 6. Branch Metrics: Separate Conditional and Unconditional
 	wire [6:0] opcode_ID = instr_ID[6:0];
-	wire is_branch_ID = (opcode_ID == 7'b1100011);  // BEQ, BNE, BLT, BGE, BLTU, BGEU
-	wire is_jal_ID = (opcode_ID == 7'b1101111);     // JAL
-	wire is_jalr_ID = (opcode_ID == 7'b1100111);    // JALR
-	wire branch_inst = (is_branch_ID || is_jal_ID || is_jalr_ID) && !nop_ID;
 	
-	// 7. Branch taken: PC changed
-	wire branch_taken_sig = (PC_sel != 2'b00);
+	// Conditional branches (BEQ, BNE, BLT, BGE, BLTU, BGEU)
+	wire is_cond_branch_ID = (opcode_ID == 7'b1100011);
+	wire conditional_branch = is_cond_branch_ID && !nop_ID;
 	
-	// 8. Misprediction: Flush
-	wire branch_mispred = flush;
+	// Unconditional jumps (JAL, JALR)
+	wire is_jal_ID = (opcode_ID == 7'b1101111);
+	wire is_jalr_ID = (opcode_ID == 7'b1100111);
+	wire unconditional_branch = (is_jal_ID || is_jalr_ID) && !nop_ID;
+	
+	// Conditional misprediction: conditional branch in EX + flush
+	// CRITICAL: Don't reset on flush! Sample BEFORE reset
+	reg is_cond_branch_EX;
+	always @(posedge clk) begin
+		if (rst)
+			is_cond_branch_EX <= 0;
+		else if (we_EX)
+			is_cond_branch_EX <= is_cond_branch_ID;
+		else if (nop_EX || flush)  // Reset AFTER sampling
+			is_cond_branch_EX <= 0;
+	end
+	
+	// Sample at positive edge: if cond branch in EX and flush happens, count it
+	wire conditional_mispred = is_cond_branch_EX && flush;
+	
 	
 	// === Program Finish Detection ===
 	// Stop counting when:
@@ -306,44 +329,35 @@ module Core (clk, rst, perf_enable, video_addr, video_data, video_we);
 				zero_instr_count <= 0;
 			
 			// Check 2: PC stuck (not changing) - reuse PC_IF_prev
-			if (PC_IF == PC_IF_prev)
-				pc_stuck_count <= pc_stuck_count + 1;
-			else
-				pc_stuck_count <= 0;
-			
-			// Stop if either condition met
-			if (zero_instr_count >= 10 || pc_stuck_count >= 10) begin
-				program_finished <= 1;
-				$display("[CORE] Program finished! zero_count=%d pc_stuck=%d at cycle=%d", 
-				         zero_instr_count, pc_stuck_count, perf_monitor.cycle_count);
-				// Save metrics immediately
-				perf_monitor.save_metrics();
-			end
+		if (PC_IF == PC_IF_prev)
+			pc_stuck_count <= pc_stuck_count + 1;
+		else
+			pc_stuck_count <= 0;
+		
+		// Stop if either condition met
+		if (zero_instr_count >= 10 || pc_stuck_count >= 10) begin
+			program_finished <= 1;
+			$display("[CORE] Program finished at cycle %d", perf_monitor.cycle_count);
+			// Save metrics immediately (for headless tests that finish quickly)
+			perf_monitor.save_metrics();
+		end
 		end
 	end
 	
+	// Performance Monitor
 	Performance_Monitor perf_monitor (
 		.clk(clk),
 		.rst(rst),
-		.perf_enable(perf_enable && !program_finished),
-		
-		// Instruction tracking
-		.instruction_valid(!nop_ID),
+		.perf_enable(perf_enable),
 		.instruction_retired(instruction_retired),
-		
-		// Pipeline events
-		.stall(pipeline_stall),
-		.bubble(pipeline_bubble),
-		
-		// Forwarding
+		.pipeline_stall(pipeline_stall),
+		.pipeline_bubble(pipeline_bubble),
+		.raw_hazard_detected(raw_hazard_detected),
 		.forward_ex_to_ex(forward_ex_to_ex),
 		.forward_mem_to_ex(forward_mem_to_ex),
-		.raw_hazard_detected(raw_hazard_detected),
-		
-		// Branch tracking
-		.branch_instruction(branch_inst),
-		.branch_taken(branch_taken_sig),
-		.branch_mispredicted(branch_mispred)
+		.conditional_branch(conditional_branch),
+		.unconditional_branch(unconditional_branch),
+		.conditional_mispred(conditional_mispred)
 	);
 
 

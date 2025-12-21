@@ -103,6 +103,15 @@ def calculate_metrics(raw):
         'Forward Success Rate': f"{forward_rate:.1f}%",
         'Branch Rate': f"{branch_rate:.1f}%",
         'Jump Rate': f"{jump_rate:.1f}%",
+        
+        # === Instruction Mix ===
+        'alu_r': raw.get('ALU_R', 0),
+        'alu_i': raw.get('ALU_I', 0),
+        'load': raw.get('LOAD', 0),
+        'store': raw.get('STORE', 0),
+        'branch': raw.get('BRANCH', 0),
+        'jump': raw.get('JUMP', 0),
+        'system': raw.get('SYSTEM', 0),
     }
 
 def print_metrics_table(metrics, test_name="Performance Test"):
@@ -153,6 +162,30 @@ def print_metrics_table(metrics, test_name="Performance Test"):
                 'Forward Success Rate', 'Branch Rate', 'Jump Rate']:
         if key in metrics:
             print(f"  {key:<35} {str(metrics[key]):>30}")
+    
+    # Instruction Mix (at end)
+    print("\n🔹 INSTRUCTION MIX")
+    print("-" * 70)
+    instructions = metrics.get('Instructions Retired', 0)
+    if instructions > 0:
+        alu_r = metrics.get('alu_r', 0)
+        alu_i = metrics.get('alu_i', 0)
+        load = metrics.get('load', 0)
+        store = metrics.get('store', 0)
+        branch_mix = metrics.get('branch', 0)
+        jump_mix = metrics.get('jump', 0)
+        system = metrics.get('system', 0)
+        classified = alu_r + alu_i + load + store + branch_mix + jump_mix + system
+        other = max(0, instructions - classified)
+        
+        print(f"  Integer ALU (R-type)                  {alu_r:>16,}  ({alu_r/instructions*100:>5.1f}%)")
+        print(f"  Integer ALU (I-type)                  {alu_i:>16,}  ({alu_i/instructions*100:>5.1f}%)")
+        print(f"  Load                                  {load:>16,}  ({load/instructions*100:>5.1f}%)")
+        print(f"  Store                                 {store:>16,}  ({store/instructions*100:>5.1f}%)")
+        print(f"  Branch                                {branch_mix:>16,}  ({branch_mix/instructions*100:>5.1f}%)")
+        print(f"  Jump                                  {jump_mix:>16,}  ({jump_mix/instructions*100:>5.1f}%)")
+        print(f"  System (ECALL/EBREAK/FENCE)           {system:>16,}  ({system/instructions*100:>5.1f}%)")
+        print(f"  Other (LUI/AUIPC/etc)                 {other:>16,}  ({other/instructions*100:>5.1f}%)")
     
     print("="*70 + "\n")
 

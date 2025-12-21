@@ -51,7 +51,7 @@ module Core (clk, rst, perf_enable, video_addr, video_data, video_we);
 	wire [4:0]  rd_ID, rd_EX, rd_MEM, rd_WB;
 	wire [19:0] U_imm_in, J_imm_in;
 	wire [16:0] CU_info; 																					// Decoder notifies the instruction to CU 
-	wire [6:0] opcode_EX, opcode;
+	wire [6:0] opcode_EX, opcode_MEM, opcode_WB, opcode;
 	wire [2:0] func3_EX, funct3;
 	wire [31:0] reg_out1_EX, reg_out2_EX, reg_out2_MEM; 											// Outputs of RF
 	wire [31:0] D_mem_out; 																					// Output and input of D_mem. D_mem_in is not used, since it is directly connected to reg_out2.
@@ -170,8 +170,8 @@ module Core (clk, rst, perf_enable, video_addr, video_data, video_we);
 	
 	ALU ALU(op1, op2, ALU_sel_EX, is_signed_EX, ALU_out_EX, Z, N);
 	
-	EX_MEM EX_MEM(PC_EX, PC_4_EX, ALU_out_EX, U_imm_EX, rd_EX, we_reg_EX, we_mem_EX, RF_sel_EX1, rs2_sel, is_load_real, is_signed_EX, word_length_EX,
-					  PC_MEM, PC_4_MEM, ALU_out_MEM, U_imm_MEM, rd_MEM, we_reg_MEM, we_mem_MEM, RF_sel_MEM, reg_out2_MEM, is_load_MEM, is_signed_MEM, word_length_MEM, nop_MEM, clk, rst);
+	EX_MEM EX_MEM(PC_EX, PC_4_EX, ALU_out_EX, U_imm_EX, rd_EX, we_reg_EX, we_mem_EX, RF_sel_EX1, rs2_sel, is_load_real, is_signed_EX, word_length_EX, opcode_EX,
+					  PC_MEM, PC_4_MEM, ALU_out_MEM, U_imm_MEM, rd_MEM, we_reg_MEM, we_mem_MEM, RF_sel_MEM, reg_out2_MEM, is_load_MEM, is_signed_MEM, word_length_MEM, opcode_MEM, nop_MEM, clk, rst);
 	
 	// ------------ MEM stage ------------
 	
@@ -192,8 +192,8 @@ module Core (clk, rst, perf_enable, video_addr, video_data, video_we);
 
 	wire [31:0] D_mem_out_WB; // Pipeline register output for Load Data
 
-	 MEM_WB MEM_WB(PC_MEM, PC_4_MEM, ALU_out_MEM, U_imm_MEM, rd_MEM, we_reg_MEM, RF_sel_MEM, is_signed_MEM, word_length_MEM, D_mem_out,
-					  PC_WB, PC_4_WB, ALU_out_WB, U_imm_WB, rd_WB, we_reg_WB, RF_sel_WB, is_signed_WB, word_length_WB, D_mem_out_WB, clk, rst);
+	 MEM_WB MEM_WB(PC_MEM, PC_4_MEM, ALU_out_MEM, U_imm_MEM, rd_MEM, we_reg_MEM, RF_sel_MEM, is_signed_MEM, word_length_MEM, D_mem_out, opcode_MEM,
+					  PC_WB, PC_4_WB, ALU_out_WB, U_imm_WB, rd_WB, we_reg_WB, RF_sel_WB, is_signed_WB, word_length_WB, D_mem_out_WB, opcode_WB, clk, rst);
 	
 	// ------------ WB stage ------------
 	
@@ -346,7 +346,8 @@ module Core (clk, rst, perf_enable, video_addr, video_data, video_we);
 		.forward_ex_to_ex(forward_ex_to_ex),
 		.forward_mem_to_ex(forward_mem_to_ex),
 		.conditional_branch(conditional_branch),
-		.unconditional_branch(unconditional_branch)
+		.unconditional_branch(unconditional_branch),
+        .opcode_wb(opcode_WB)
 	);
 
 

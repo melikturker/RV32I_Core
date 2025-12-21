@@ -1,8 +1,9 @@
 `timescale 1ns / 1ps
 
-module Core (clk, rst, video_addr, video_data, video_we);
+module Core (clk, rst, perf_enable, video_addr, video_data, video_we);
 
 	input clk, rst;
+	input perf_enable;              // Performance monitoring enable
 	
     // Video Interface Ports
     output [31:0] video_addr;
@@ -98,8 +99,12 @@ module Core (clk, rst, video_addr, video_data, video_we);
 	end
 	
 	// ------------ Stall Unit ------------
+	// Memory busy signals (not used yet, tie to 0)
+	wire i_mem_busy = 1'b0;
+	wire d_mem_busy = 1'b0;
 	
-	Stall_Unit SU(nop_ID, nop_EX, nop_MEM, we_ID, we_EX, rev_PC, we_PC, stall_FU, flush, rst); 
+	Stall_Unit SU(nop_ID, nop_EX, nop_MEM, we_ID, we_EX, rev_PC, we_PC, 
+	              we_MEM, we_WB, stall_FU, i_mem_busy, d_mem_busy, flush, rst); 
 	
 	// ------------ Forwarding Unit ------------	
     // Workaround for Stuck is_load_EX: Validate with Opcode and Funct3
@@ -189,6 +194,157 @@ module Core (clk, rst, video_addr, video_data, video_we);
 	
 	Load_Length_Unit LLU(D_mem_out_WB, word_length_WB, is_signed_WB, LLU_out);
 
+	// ------------ Performance Monitoring ------------
+	
+	// === Simple, Direct Signals ===
+	
+	// 1. Instruction Valid Signal - Simple Propagation
+	// Generate valid in IF, propagate through pipeline, count at WB
+	
+	// IF: Valid if real instruction fetched (allow PC=0 for first instruction!)
+	wire valid_IF = (instr != 32'h00000000);
+	
+	// ID: Propagate or clear on NOP
+	reg valid_ID;
+	always @(posedge clk) begin
+		if (rst || nop_ID)
+			valid_ID <= 0;
+		else if (we_ID)
+			valid_ID <= valid_IF;
+		else
+			valid_ID <= valid_ID;  // Hold
+	end
+	
+	// EX: Propagate or clear on NOP/flush
+	reg valid_EX;
+	always @(posedge clk) begin
+		if (rst || nop_EX || flush)
+			valid_EX <= 0;
+		else if (we_EX)
+			valid_EX <= valid_ID;
+		else
+			valid_EX <= valid_EX;  // Hold
+	end
+	
+	// MEM: Propagate or clear on NOP
+	reg valid_MEM;
+	always @(posedge clk) begin
+		if (rst || nop_MEM)
+			valid_MEM <= 0;
+		else
+			valid_MEM <= valid_EX;
+	end
+	
+	// WB: Propagate (final stage)
+	reg valid_WB;
+	always @(posedge clk) begin
+		if (rst)
+			valid_WB <= 0;
+		else
+			valid_WB <= valid_MEM;
+	end
+	
+	// Retired: Simply check valid at WB
+	wire instruction_retired = valid_WB;
+	
+	// Track PC_IF for program finish detection
+	reg [31:0] PC_IF_prev;
+	always @(posedge clk) begin
+		if (rst)
+			PC_IF_prev <= 0;
+		else
+			PC_IF_prev <= PC_IF;
+	end
+	
+	// 2. Stall: Direct from Forwarding Unit
+	wire pipeline_stall = stall_FU;
+	
+	// 3. Bubble: NOP in EX or MEM
+	wire pipeline_bubble = nop_EX || nop_MEM;
+	
+	// 4. RAW Hazard: Dependency detected (simplified)
+	wire raw_hazard_ex_mem = ((rs1_EX == rd_MEM) || (rs2_EX == rd_MEM)) && (rd_MEM != 5'b0) && we_reg_MEM;
+	wire raw_hazard_ex_wb = ((rs1_EX == rd_WB) || (rs2_EX == rd_WB)) && (rd_WB != 5'b0) && we_reg_WB;
+	wire raw_hazard_detected = raw_hazard_ex_mem || raw_hazard_ex_wb;
+	
+	// 5. Forwarding: FU select signals
+	wire forward_ex_to_ex = FU_sel1;
+	wire forward_mem_to_ex = FU_sel2;
+	
+	// 6. Branch: Decode from instruction opcode
+	wire [6:0] opcode_ID = instr_ID[6:0];
+	wire is_branch_ID = (opcode_ID == 7'b1100011);  // BEQ, BNE, BLT, BGE, BLTU, BGEU
+	wire is_jal_ID = (opcode_ID == 7'b1101111);     // JAL
+	wire is_jalr_ID = (opcode_ID == 7'b1100111);    // JALR
+	wire branch_inst = (is_branch_ID || is_jal_ID || is_jalr_ID) && !nop_ID;
+	
+	// 7. Branch taken: PC changed
+	wire branch_taken_sig = (PC_sel != 2'b00);
+	
+	// 8. Misprediction: Flush
+	wire branch_mispred = flush;
+	
+	// === Program Finish Detection ===
+	// Stop counting when:
+	// 1. 10 consecutive 0x00000000 instructions OR
+	// 2. PC stuck (doesn't change for 10 cycles)
+	// Note: PC_IF_prev is already defined in instruction tracking above
+	reg program_finished;
+	reg [3:0] zero_instr_count;
+	reg [3:0] pc_stuck_count;
+	
+	always @(posedge clk) begin
+		if (rst) begin
+			program_finished <= 0;
+			zero_instr_count <= 0;
+			pc_stuck_count <= 0;
+		end else if (!program_finished) begin
+			// Check 1: Consecutive zero instructions
+			if (instr == 32'h00000000)
+				zero_instr_count <= zero_instr_count + 1;
+			else
+				zero_instr_count <= 0;
+			
+			// Check 2: PC stuck (not changing) - reuse PC_IF_prev
+			if (PC_IF == PC_IF_prev)
+				pc_stuck_count <= pc_stuck_count + 1;
+			else
+				pc_stuck_count <= 0;
+			
+			// Stop if either condition met
+			if (zero_instr_count >= 10 || pc_stuck_count >= 10) begin
+				program_finished <= 1;
+				$display("[CORE] Program finished! zero_count=%d pc_stuck=%d at cycle=%d", 
+				         zero_instr_count, pc_stuck_count, perf_monitor.cycle_count);
+				// Save metrics immediately
+				perf_monitor.save_metrics();
+			end
+		end
+	end
+	
+	Performance_Monitor perf_monitor (
+		.clk(clk),
+		.rst(rst),
+		.perf_enable(perf_enable && !program_finished),
+		
+		// Instruction tracking
+		.instruction_valid(!nop_ID),
+		.instruction_retired(instruction_retired),
+		
+		// Pipeline events
+		.stall(pipeline_stall),
+		.bubble(pipeline_bubble),
+		
+		// Forwarding
+		.forward_ex_to_ex(forward_ex_to_ex),
+		.forward_mem_to_ex(forward_mem_to_ex),
+		.raw_hazard_detected(raw_hazard_detected),
+		
+		// Branch tracking
+		.branch_instruction(branch_inst),
+		.branch_taken(branch_taken_sig),
+		.branch_mispredicted(branch_mispred)
+	);
 
 
-endmodule 
+endmodule

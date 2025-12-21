@@ -2,7 +2,8 @@
 
 module SoC(
     input clk,
-    input rst
+    input rst,
+    input perf_enable
 );
 
     // Core Wires
@@ -14,6 +15,7 @@ module SoC(
     Core core_inst (
         .clk(clk),
         .rst(rst),
+        .perf_enable(perf_enable),
         .video_addr(video_addr),
         .video_data(video_data),
         .video_we(video_we)

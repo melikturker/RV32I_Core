@@ -229,7 +229,9 @@ def cmd_test(args):
     failed_count = 0
     
     for test_name, test_path, category in tests:
-        cmd = f"{sim_bin} +TESTFILE={test_path}"
+        # Build command with optional performance monitoring
+        perf_flag = "+PERF_ENABLE" if args.perf and category == "functional" else ""
+        cmd = f"{sim_bin} +TESTFILE={test_path} {perf_flag}".strip()
         
         try:
             result = subprocess.run(cmd, shell=True, cwd=PROJECT_ROOT, 
@@ -240,6 +242,21 @@ def cmd_test(args):
             if "Simulation PASSED" in output and result.returncode == 0:
                 print(f"{test_name:<45} | \033[92m✅ PASS\033[0m")
                 passed_count += 1
+                
+                # Generate performance report if --perf enabled for functional tests
+                if args.perf and category == "functional":
+                    perf_log = os.path.join(PROJECT_ROOT, "logs", "perf_counters.txt")
+                    if os.path.exists(perf_log):
+                        # Import and call performance_report
+                        sys.path.insert(0, TOOLS_DIR)
+                        from performance_report import generate_report
+                        
+                        # Display compact report
+                        print(f"   📊 Performance Metrics:")
+                        try:
+                            generate_report(perf_file=perf_log, test_name=test_name.replace('.hex', ''))
+                        except Exception as e:
+                            print(f"   ⚠️  Report generation failed: {e}")
             else:
                 print(f"{test_name:<45} | \033[91m❌ FAIL\033[0m")
                 failed_count += 1
@@ -465,6 +482,7 @@ Maintainer: Ismail Melik
     p_test.add_argument("--seed", type=int, help="Random seed for reproducibility")
     p_test.add_argument("--functionality", action="store_true", help="Run only functional tests")
     p_test.add_argument("--performance", action="store_true", help="Run only performance tests")
+    p_test.add_argument("--perf", action="store_true", help="Enable performance monitoring and generate report")
     
     # Command: coverage
     p_cov = subparsers.add_parser("coverage", help="Run & Generate Coverage Report")

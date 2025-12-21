@@ -57,7 +57,8 @@ $(BUILD_DIR)/sim_headless.cpp: $(SIM_DIR)/sim_headless.cpp directories
 headless_verilate: $(VERILOG_SRCS) $(BUILD_DIR)/sim_headless.cpp
 	@echo "[Makefile] Building Headless Simulation..."
 	@$(VERILATOR) $(V_FLAGS) $(OPT_FLAGS) \
-		$(VERILOG_SRCS) $(PWD)/$(BUILD_DIR)/sim_headless.cpp $(PWD)/$(BUILD_DIR)/sim_vram_dpi.cpp \
+		$(VERILOG_SRCS) $(PWD)/$(BUILD_DIR)/sim_headless.cpp \
+		$(PWD)/$(BUILD_DIR)/sim_vram_dpi.cpp \
 		-LDFLAGS "-pthread -lrt" \
 		-CFLAGS "-I$(PWD)/$(SIM_DIR) $(OPT_FLAGS)" \
 		-o ../sim_headless

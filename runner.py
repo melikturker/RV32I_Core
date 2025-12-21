@@ -140,6 +140,12 @@ def cmd_run(args):
     # Run Simulation
     log(f"Launching simulation [{mode_str}] (Auto-Detected)...")
     
+    # Clear old performance log if --perf enabled (prevents showing stale data)
+    if args.perf:
+        perf_log = os.path.join(PROJECT_ROOT, "logs", "perf_counters.txt")
+        if os.path.exists(perf_log):
+            os.remove(perf_log)
+    
     # Add performance monitoring if requested
     perf_flag = "+PERF_ENABLE" if args.perf else ""
     cmd = f"{sim_bin} +TESTFILE={hex_path} {perf_flag}".strip()
@@ -174,6 +180,24 @@ def cmd_run(args):
     except KeyboardInterrupt:
         print("\n")
         log("Simulation interrupted by user.")
+        
+        # Show performance report if --perf enabled even on interrupt
+        if args.perf:
+            perf_log = os.path.join(PROJECT_ROOT, "logs", "perf_counters.txt")
+            if os.path.exists(perf_log):
+                print("\n" + "="*60)
+                log("Performance Report (interrupted):")
+                print("="*60)
+                
+                sys.path.insert(0, TOOLS_DIR)
+                from performance_report import generate_report
+                
+                try:
+                    app_name = os.path.splitext(os.path.basename(args.file))[0]
+                    generate_report(perf_file=perf_log, test_name=app_name)
+                except Exception as e:
+                    log_error(f"Report generation failed: {e}")
+
 
 
 def cmd_test(args):

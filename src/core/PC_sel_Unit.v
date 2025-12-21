@@ -13,7 +13,7 @@ module PC_sel_Unit(opcode, funct3, is_flushed, Z, N, RF_sel_in, flush, RF_sel_ou
 	
 	always @(*) begin
 	
-		if(rst || is_flushed) begin
+		if(rst) begin
 			RF_sel_out = 3'b000;
 			PC_sel = 2'b00;
 			flush = 1'b0;

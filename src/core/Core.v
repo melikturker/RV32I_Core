@@ -291,20 +291,9 @@ module Core (clk, rst, perf_enable, video_addr, video_data, video_we);
 	wire is_jalr_ID = (opcode_ID == 7'b1100111);
 	wire unconditional_branch = (is_jal_ID || is_jalr_ID) && !nop_ID;
 	
-	// Conditional misprediction: conditional branch in EX + flush
-	// CRITICAL: Don't reset on flush! Sample BEFORE reset
-	reg is_cond_branch_EX;
-	always @(posedge clk) begin
-		if (rst)
-			is_cond_branch_EX <= 0;
-		else if (we_EX)
-			is_cond_branch_EX <= is_cond_branch_ID;
-		else if (nop_EX || flush)  // Reset AFTER sampling
-			is_cond_branch_EX <= 0;
-	end
-	
-	// Sample at positive edge: if cond branch in EX and flush happens, count it
-	wire conditional_mispred = is_cond_branch_EX && flush;
+	// 7. Flush: Track pipeline flushes (control-flow penalty)
+	// Flush occurs on all control-flow changes (both conditional and unconditional)
+	wire pipeline_flush = flush;
 	
 	
 	// === Program Finish Detection ===
@@ -352,12 +341,12 @@ module Core (clk, rst, perf_enable, video_addr, video_data, video_we);
 		.instruction_retired(instruction_retired),
 		.pipeline_stall(pipeline_stall),
 		.pipeline_bubble(pipeline_bubble),
+		.pipeline_flush(pipeline_flush),
 		.raw_hazard_detected(raw_hazard_detected),
 		.forward_ex_to_ex(forward_ex_to_ex),
 		.forward_mem_to_ex(forward_mem_to_ex),
 		.conditional_branch(conditional_branch),
-		.unconditional_branch(unconditional_branch),
-		.conditional_mispred(conditional_mispred)
+		.unconditional_branch(unconditional_branch)
 	);
 
 

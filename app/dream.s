@@ -25,7 +25,6 @@ _start:
     addi x11, x0, 0          // t = 0
 
 frame_loop:
-    div x2, x11, 4           // Not supported? Wait, no DIV.
     // Use shift for pseudo-slow time.
     srli x2, x11, 2          // slow_t = t >> 2
 

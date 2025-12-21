@@ -113,6 +113,29 @@ def assemble(input_file, output_file):
         mach_code = 0
         
         try:
+            # Define expected operand counts for better error messages
+            operand_counts = {
+                'add': 3, 'sub': 3, 'and': 3, 'or': 3, 'xor': 3,
+                'sll': 3, 'srl': 3, 'sra': 3, 'slt': 3, 'sltu': 3,
+                'addi': 3, 'slti': 3, 'sltiu': 3, 'xori': 3, 'ori': 3, 'andi': 3,
+                'slli': 3, 'srli': 3, 'srai': 3,
+                'lw': 2, 'lh': 2, 'lb': 2, 'lhu': 2, 'lbu': 2,
+                'sw': 2, 'sh': 2, 'sb': 2,
+                'beq': 3, 'bne': 3, 'blt': 3, 'bge': 3, 'bltu': 3, 'bgeu': 3, 'bnez': 2,
+                'jal': 2, 'jalr': 2,  # Can be 2 or 3
+                'lui': 2, 'auipc': 2,
+            }
+            
+            # Check operand count if we know what to expect
+            if op in operand_counts:
+                expected = operand_counts[op]
+                actual = len(parts) - 1  # Subtract opcode
+                if actual < expected:
+                    print(f"ERROR: Missing operands for '{op}' at PC={pc}")
+                    print(f"       Expected {expected} operands, found {actual}")
+                    print(f"       Line: {line}")
+                    raise ValueError(f"Incomplete instruction: {op}")
+            
             if op == 'li': 
                 pass 
                 
@@ -244,6 +267,32 @@ def assemble(input_file, output_file):
                     imm4_1 = (offset >> 1) & 0xF
                     imm11 = (offset >> 11) & 1
                     mach_code = (imm12 << 31) | (imm10_5 << 25) | (rs2 << 20) | (rs1 << 15) | (5 << 12) | (imm4_1 << 8) | (imm11 << 7) | 0x63
+            
+            elif op == 'bltu':
+                rs1 = parse_reg(parts[1])
+                rs2 = parse_reg(parts[2])
+                label = parts[3]
+                if label in labels:
+                    target = labels[label]
+                    offset = target - pc
+                    imm12 = (offset >> 12) & 1
+                    imm10_5 = (offset >> 5) & 0x3F
+                    imm4_1 = (offset >> 1) & 0xF
+                    imm11 = (offset >> 11) & 1
+                    mach_code = (imm12 << 31) | (imm10_5 << 25) | (rs2 << 20) | (rs1 << 15) | (6 << 12) | (imm4_1 << 8) | (imm11 << 7) | 0x63
+            
+            elif op == 'bgeu':
+                rs1 = parse_reg(parts[1])
+                rs2 = parse_reg(parts[2])
+                label = parts[3]
+                if label in labels:
+                    target = labels[label]
+                    offset = target - pc
+                    imm12 = (offset >> 12) & 1
+                    imm10_5 = (offset >> 5) & 0x3F
+                    imm4_1 = (offset >> 1) & 0xF
+                    imm11 = (offset >> 11) & 1
+                    mach_code = (imm12 << 31) | (imm10_5 << 25) | (rs2 << 20) | (rs1 << 15) | (7 << 12) | (imm4_1 << 8) | (imm11 << 7) | 0x63
 
             elif op == 'j':
                 label = parts[1]
@@ -302,8 +351,21 @@ def assemble(input_file, output_file):
 
             elif op == 'jalr':
                 rd = parse_reg(parts[1])
-                rs1 = parse_reg(parts[2])
-                imm = parse_imm(parts[3])
+                # Support both: jalr rd, imm(rs1) and jalr rd, rs1, imm
+                if len(parts) == 3:
+                    # Format: jalr rd, offset(rs1)
+                    match = re.match(r'(.+)\((.+)\)', parts[2])
+                    if match:
+                        imm = parse_imm(match.group(1))
+                        rs1 = parse_reg(match.group(2))
+                    else:
+                        # jalr rd, rs1 (implicit imm=0)
+                        rs1 = parse_reg(parts[2])
+                        imm = 0
+                else:
+                    # Format: jalr rd, rs1, imm
+                    rs1 = parse_reg(parts[2])
+                    imm = parse_imm(parts[3])
                 mach_code = (to_hex(imm, 12) << 20) | (rs1 << 15) | (0 << 12) | (rd << 7) | 0x67
 
             elif op == 'auipc':

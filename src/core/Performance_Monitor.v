@@ -7,9 +7,9 @@
  * Metrics tracked:
  * - Total cycles
  * - Instructions retired
- * - Stall cycles
- * - Forward events
- * - Branch events (taken, mispredictions)
+ * - Stall, bubble, and flush cycles
+ * - Forwarding events
+ * - Branch and jump counts
  */
 
 module Performance_Monitor (
@@ -21,12 +21,12 @@ module Performance_Monitor (
     input wire instruction_retired,
     input wire pipeline_stall,
     input wire pipeline_bubble,
+    input wire pipeline_flush,
     input wire raw_hazard_detected,
     input wire forward_ex_to_ex,
     input wire forward_mem_to_ex,
     input wire conditional_branch,
-    input wire unconditional_branch,
-    input wire conditional_mispred
+    input wire unconditional_branch
 );
 
     // Performance Counters
@@ -34,11 +34,11 @@ module Performance_Monitor (
     reg [31:0] instruction_count;
     reg [31:0] stall_count;
     reg [31:0] bubble_count;
+    reg [31:0] flush_count;
     reg [31:0] forward_count;
     reg [31:0] raw_hazard_count;
     reg [31:0] cond_branch_count;
     reg [31:0] uncond_branch_count;
-    reg [31:0] cond_mispred_count;
     
     // Counter logic
     always @(posedge clk) begin
@@ -47,11 +47,11 @@ module Performance_Monitor (
             instruction_count <= 0;
             stall_count <= 0;
             bubble_count <= 0;
+            flush_count <= 0;
             forward_count <= 0;
             raw_hazard_count <= 0;
             cond_branch_count <= 0;
             uncond_branch_count <= 0;
-            cond_mispred_count <= 0;
         end else if (perf_enable) begin
             // Count cycles (perf_enable controlled externally to stop when program ends)
             cycle_count <= cycle_count + 1;
@@ -64,6 +64,9 @@ module Performance_Monitor (
             
             if (pipeline_bubble && perf_enable)
                 bubble_count <= bubble_count + 1;
+            
+            if (pipeline_flush && perf_enable)
+                flush_count <= flush_count + 1;
         
             if (raw_hazard_detected && perf_enable)
                 raw_hazard_count <= raw_hazard_count + 1;
@@ -76,9 +79,6 @@ module Performance_Monitor (
             
             if (unconditional_branch && perf_enable)
                 uncond_branch_count <= uncond_branch_count + 1;
-            
-            if (conditional_mispred && perf_enable)
-                cond_mispred_count <= cond_mispred_count + 1;
         end
     end
     
@@ -99,11 +99,11 @@ module Performance_Monitor (
                     $fwrite(f, "instructions=%0d\n", instruction_count);
                     $fwrite(f, "stalls=%0d\n", stall_count);
                     $fwrite(f, "bubbles=%0d\n", bubble_count);
+                    $fwrite(f, "flushes=%0d\n", flush_count);
                     $fwrite(f, "forwards=%0d\n", forward_count);
                     $fwrite(f, "raw_hazards=%0d\n", raw_hazard_count);
                     $fwrite(f, "cond_branches=%0d\n", cond_branch_count);
                     $fwrite(f, "uncond_branches=%0d\n", uncond_branch_count);
-                    $fwrite(f, "cond_mispred=%0d\n", cond_mispred_count);
                     $fclose(f);
                     $display("[PERF] Metrics saved to logs/perf_counters.txt");
                 end else begin
@@ -112,5 +112,12 @@ module Performance_Monitor (
             end
         end
     endtask
+    
+    // Auto-save metrics when simulation ends (Verilator final)
+    final begin
+        if (perf_enable) begin
+            save_metrics();
+        end
+    end
 
 endmodule

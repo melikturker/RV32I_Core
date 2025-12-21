@@ -6,6 +6,7 @@
 #include "VSoC_Video_Mem.h"
 #include <SDL2/SDL.h>
 #include <iostream>
+#include <fstream>
 
 // Constants
 const int WIDTH = 320;
@@ -152,7 +153,7 @@ int main(int argc, char** argv) {
         }
     }
 
-    // Cleanup
+    // Cleanup (Performance metrics auto-saved via Verilog final block)
     top->final();
     SDL_DestroyTexture(texture);
     SDL_DestroyRenderer(renderer);

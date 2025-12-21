@@ -1,9 +1,10 @@
 `timescale 1ns / 1ps
 
-module Core (clk, rst, perf_enable, video_addr, video_data, video_we);
+module Core (clk, rst, perf_enable, program_finished, video_addr, video_data, video_we);
 
 	input clk, rst;
 	input perf_enable;              // Performance monitoring enable
+	output program_finished;        // Signal when program ends (ebreak detected)
 	
     // Video Interface Ports
     output [31:0] video_addr;
@@ -329,6 +330,7 @@ module Core (clk, rst, perf_enable, video_addr, video_data, video_we);
 			$display("[CORE] Program finished at cycle %d", perf_monitor.cycle_count);
 			// Save metrics immediately (for headless tests that finish quickly)
 			perf_monitor.save_metrics();
+			$finish;  // STOP SIMULATION NOW!
 		end
 		end
 	end

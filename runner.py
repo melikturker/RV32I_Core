@@ -263,12 +263,29 @@ def cmd_test(args):
     
     # === PERFORMANCE TESTS ===
     if run_performance:
-        # Performance hex tests (future: benchmark tests)
-        perf_dir = os.path.join(PROJECT_ROOT, "tests", "performance")
-        if os.path.exists(perf_dir):
-            for f in sorted(os.listdir(perf_dir)):
-                if f.endswith(".hex"):
-                    tests.append((f, os.path.join(perf_dir, f), "performance"))
+        # Performance Tests (benchmarking)
+        perf_tests = [
+            os.path.join(PROJECT_ROOT, "tests", "performance", "perf_test_simple.s"),
+            os.path.join(PROJECT_ROOT, "tests", "performance", "benchmarks", "array_sum.s"),
+        ]
+        
+        assembler_script = os.path.join(TOOLS_DIR, "assembler.py")
+        for asm_file in perf_tests:
+            if os.path.exists(asm_file):
+                # Assemble to hex in BUILD_DIR
+                hex_name = os.path.basename(asm_file).replace(".s", ".hex")
+                hex_path = os.path.join(BUILD_DIR, hex_name)
+                
+                try:
+                    subprocess.check_call(
+                        f"python3 {assembler_script} {asm_file} {hex_path}",
+                        shell=True, cwd=PROJECT_ROOT, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+                    )
+                    tests.append((os.path.basename(hex_path), hex_path, "performance"))
+                except subprocess.CalledProcessError:
+                    log_error(f"Failed to assemble performance test {os.path.basename(asm_file)}")
+            else:
+                log_error(f"Performance test file not found: {asm_file}")
 
     if not tests:
         log_error("No tests found to run.")
@@ -277,26 +294,34 @@ def cmd_test(args):
     passed_count = 0
     failed_count = 0
     
-    for test_name, test_path, category in tests:
-        # Build command with optional performance monitoring
-        perf_flag = "+PERF_ENABLE" if args.perf and category == "functional" else ""
-        cmd = f"{sim_bin} +TESTFILE={test_path} {perf_flag}".strip()
-        
+    sim_bin = os.path.join(BUILD_DIR, "sim_headless")
+    
+    for test_name, hex_path, category in tests:
         try:
-            result = subprocess.run(cmd, shell=True, cwd=PROJECT_ROOT, 
-                                  stdout=subprocess.PIPE, stderr=subprocess.STDOUT, 
-                                  text=True, timeout=10)
-            output = result.stdout
+            # Build command with performance flag for performance tests
+            perf_flag = "+PERF_ENABLE" if (category == "performance" or args.perf) else ""
+            cmd = f"{sim_bin} +TESTFILE={hex_path} {perf_flag}".strip()
             
-            if "Simulation PASSED" in output and result.returncode == 0:
+            result = subprocess.run(
+                cmd,
+                shell=True,
+                cwd=PROJECT_ROOT,
+                capture_output=True,
+                text=True,
+                timeout=30
+            )
+            output = result.stdout + result.stderr
+            
+            # Check for success (exit code 0)
+            if result.returncode == 0 and "PASSED" in output:
                 print(f"{test_name:<45} | \033[92m✅ PASS\033[0m")
                 passed_count += 1
                 
                 # Generate performance report if --perf enabled for functional tests
-                if args.perf and category == "functional":
+                # OR always for performance category tests
+                if (args.perf and category == "functional") or (category == "performance"):
                     perf_log = os.path.join(PROJECT_ROOT, "logs", "perf_counters.txt")
                     if os.path.exists(perf_log):
-                        # Import and call performance_report
                         sys.path.insert(0, TOOLS_DIR)
                         from performance_report import generate_report
                         

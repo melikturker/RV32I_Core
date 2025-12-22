@@ -269,6 +269,10 @@ def cmd_test(args):
             os.path.join(PROJECT_ROOT, "tests", "performance", "benchmarks", "array_sum.s"),
             os.path.join(PROJECT_ROOT, "tests", "performance", "benchmarks", "memcpy.s"),
             os.path.join(PROJECT_ROOT, "tests", "performance", "benchmarks", "matrix_transpose.s"),
+            os.path.join(PROJECT_ROOT, "tests", "performance", "benchmarks", "fibonacci.s"),
+            os.path.join(PROJECT_ROOT, "tests", "performance", "benchmarks", "binary_search.s"),
+            os.path.join(PROJECT_ROOT, "tests", "performance", "benchmarks", "bubble_sort.s"),
+            os.path.join(PROJECT_ROOT, "tests", "performance", "benchmarks", "gcd.s"),
         ]
         
         assembler_script = os.path.join(TOOLS_DIR, "assembler.py")

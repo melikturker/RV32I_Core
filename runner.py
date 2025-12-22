@@ -157,9 +157,6 @@ def cmd_run(args):
         if args.perf and result.returncode == 0:
             perf_log = os.path.join(PROJECT_ROOT, "logs", "perf_counters.txt")
             if os.path.exists(perf_log):
-                print("\n" + "="*60)
-                log("Performance Report:")
-                print("="*60)
                 
                 # Import and call performance_report
                 sys.path.insert(0, TOOLS_DIR)
@@ -198,6 +195,46 @@ def cmd_run(args):
                 except Exception as e:
                     log_error(f"Report generation failed: {e}")
 
+def generate_performance_summary(perf_results, args):
+    """Generate and display/save performance summary table"""
+    sys.path.insert(0, TOOLS_DIR)
+    from performance_summary import generate_summary_table, save_report
+    from regression_checker import save_baseline, check_regression
+    
+    # Generate summary table
+    summary_text = generate_summary_table(perf_results, use_color=True)
+    
+    # Always display to terminal
+    print(summary_text)
+    
+    # Save baseline if requested
+    if args.save_baseline:
+        baseline_path = save_baseline(perf_results)
+        print(f"\n💾 Baseline saved to: {baseline_path}")
+    
+    # Check regression if requested
+    if args.check_regression:
+        report_lines, has_regression = check_regression(perf_results)
+        for line in report_lines:
+            print(line)
+        
+        if has_regression:
+            # Use direct ANSI codes instead of Colors class
+            print(f"\n\033[91m❌ Performance regression detected!\033[0m")
+            print(f"   Consider investigating the changes or updating baseline if intentional.")
+    
+    # Collect verbose content if requested
+    verbose_content = None
+    if args.verbose:
+        print(f"\n{Colors.BOLD}📋 DETAILED REPORTS{Colors.RESET}\n")
+        # Note: Detailed reports already shown during test run if --verbose
+        verbose_content = "(Detailed reports shown above during test execution)"
+    
+    # Save to file if requested
+    if args.save is not None:
+        save_path = None if args.save is True else args.save
+        saved_file = save_report(summary_text, save_path, verbose_content)
+        print(f"\n💾 Report saved to: {saved_file}")
 
 
 def cmd_test(args):
@@ -263,16 +300,15 @@ def cmd_test(args):
     
     # === PERFORMANCE TESTS ===
     if run_performance:
-        # Performance Tests (benchmarking)
+        # Performance Benchmarks
         perf_tests = [
-            os.path.join(PROJECT_ROOT, "tests", "performance", "perf_test_simple.s"),
-            os.path.join(PROJECT_ROOT, "tests", "performance", "benchmarks", "array_sum.s"),
-            os.path.join(PROJECT_ROOT, "tests", "performance", "benchmarks", "memcpy.s"),
-            os.path.join(PROJECT_ROOT, "tests", "performance", "benchmarks", "matrix_transpose.s"),
-            os.path.join(PROJECT_ROOT, "tests", "performance", "benchmarks", "fibonacci.s"),
-            os.path.join(PROJECT_ROOT, "tests", "performance", "benchmarks", "binary_search.s"),
-            os.path.join(PROJECT_ROOT, "tests", "performance", "benchmarks", "bubble_sort.s"),
-            os.path.join(PROJECT_ROOT, "tests", "performance", "benchmarks", "gcd.s"),
+            os.path.join(PROJECT_ROOT, "tests", "performance", "array_sum.s"),
+            os.path.join(PROJECT_ROOT, "tests", "performance", "memcpy.s"),
+            os.path.join(PROJECT_ROOT, "tests", "performance", "matrix_transpose.s"),
+            os.path.join(PROJECT_ROOT, "tests", "performance", "fibonacci.s"),
+            os.path.join(PROJECT_ROOT, "tests", "performance", "binary_search.s"),
+            os.path.join(PROJECT_ROOT, "tests", "performance", "bubble_sort.s"),
+            os.path.join(PROJECT_ROOT, "tests", "performance", "gcd.s"),
         ]
         
         assembler_script = os.path.join(TOOLS_DIR, "assembler.py")
@@ -299,6 +335,7 @@ def cmd_test(args):
 
     passed_count = 0
     failed_count = 0
+    perf_results = {}  # NEW: Collect performance results for summary table
     
     sim_bin = os.path.join(BUILD_DIR, "sim_headless")
     
@@ -323,9 +360,19 @@ def cmd_test(args):
                 print(f"{test_name:<45} | \033[92m✅ PASS\033[0m")
                 passed_count += 1
                 
+                # Collect performance data for summary table (performance category only)
+                if category == "performance":
+                    perf_log = os.path.join(PROJECT_ROOT, "logs", "perf_counters.txt")
+                    if os.path.exists(perf_log):
+                        sys.path.insert(0, TOOLS_DIR)
+                        from performance_summary import parse_perf_file
+                        metrics = parse_perf_file(perf_log)
+                        benchmark_name = test_name.replace('.hex', '')
+                        perf_results[benchmark_name] = ('PASS', metrics)
+                
                 # Generate performance report if --perf enabled for functional tests
-                # OR always for performance category tests
-                if (args.perf and category == "functional") or (category == "performance"):
+                # OR always for performance category tests (but only if NOT in summary mode)
+                if (args.perf and category == "functional") or (category == "performance" and args.verbose):
                     perf_log = os.path.join(PROJECT_ROOT, "logs", "perf_counters.txt")
                     if os.path.exists(perf_log):
                         sys.path.insert(0, TOOLS_DIR)
@@ -340,6 +387,11 @@ def cmd_test(args):
             else:
                 print(f"{test_name:<45} | \033[91m❌ FAIL\033[0m")
                 failed_count += 1
+                
+                # Store FAIL status for performance tests too
+                if category == "performance":
+                    benchmark_name = test_name.replace('.hex', '')
+                    perf_results[benchmark_name] = ('FAIL', None)
                 
                 # Create logs directory if it doesn't exist
                 log_dir = os.path.join(PROJECT_ROOT, "logs")
@@ -410,6 +462,13 @@ def cmd_test(args):
         log_success(f"Summary: {passed_count} Passed, 0 Failed")
     else:
         log_error(f"Summary: {passed_count} Passed, {failed_count} Failed")
+    
+    # Generate performance summary table if performance tests were run
+    if run_performance and passed_count > 0:
+        print("\n")  # Extra spacing
+        generate_performance_summary(perf_results, args)
+    
+    if failed_count > 0:
         sys.exit(1)
 
 def cmd_coverage(args):
@@ -510,7 +569,11 @@ def main():
      \033[1m./runner.py test [OPTIONS]\033[0m
      - Executes regression test suite (functionality + performance).
      - \033[96m--functionality\033[0m  : Run only functional correctness tests.
-     - \033[96m--performance\033[0m    : Run only performance benchmarks.
+     - \033[96m--performance\033[0m    : Run only performance benchmarks (with summary table).
+     - \033[96m--verbose\033[0m        : Show detailed per-benchmark performance reports.
+     - \033[96m--save [PATH]\033[0m    : Save performance summary to file (auto-generates filename if no path).
+     - \033[96m--save-baseline\033[0m  : Save current performance as baseline (expected.json).
+     - \033[96m--check-regression\033[0m : Compare against baseline and report improvements/regressions.
      - \033[96m--count N\033[0m        : Number of random instructions (default: 100).
      - \033[96m--seed S\033[0m         : Seed for random generation (optional).
      - Note: If no filter specified, runs ALL tests.
@@ -564,6 +627,11 @@ Maintainer: Ismail Melik
     p_test.add_argument("--functionality", action="store_true", help="Run only functional tests")
     p_test.add_argument("--performance", action="store_true", help="Run only performance tests")
     p_test.add_argument("--perf", action="store_true", help="Enable performance monitoring and generate report")
+    p_test.add_argument("--verbose", action="store_true", help="Show detailed performance reports")
+    p_test.add_argument("--save", nargs='?', const=True, default=None, metavar='PATH', 
+                       help="Save performance report to file (auto-generated name if no path given)")
+    p_test.add_argument("--save-baseline", action="store_true", help="Save current performance results as baseline (expected.json)")
+    p_test.add_argument("--check-regression", action="store_true", help="Compare performance against baseline and report regressions")
     
     # Command: coverage
     p_cov = subparsers.add_parser("coverage", help="Run & Generate Coverage Report")

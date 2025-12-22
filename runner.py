@@ -267,6 +267,8 @@ def cmd_test(args):
         perf_tests = [
             os.path.join(PROJECT_ROOT, "tests", "performance", "perf_test_simple.s"),
             os.path.join(PROJECT_ROOT, "tests", "performance", "benchmarks", "array_sum.s"),
+            os.path.join(PROJECT_ROOT, "tests", "performance", "benchmarks", "memcpy.s"),
+            os.path.join(PROJECT_ROOT, "tests", "performance", "benchmarks", "matrix_transpose.s"),
         ]
         
         assembler_script = os.path.join(TOOLS_DIR, "assembler.py")

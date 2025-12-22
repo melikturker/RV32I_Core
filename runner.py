@@ -38,22 +38,48 @@ def run_cmd(cmd, cwd=PROJECT_ROOT, silent=False):
 
 def check_env():
     """Verify essential tools are available."""
-    tools = ["verilator", "make", "g++", "sdl2-config", "python3"]
+    print("\n" + "="*60)
+    print("🔍 SYSTEM REQUIREMENTS CHECK")
+    print("="*60)
+    
+    # Define dependencies with descriptions
+    dependencies = [
+        ("verilator", "Verilog HDL simulator"),
+        ("make", "Build automation tool"),
+        ("g++", "C++ compiler"),
+        ("sdl2-config", "SDL2 library (for GUI)"),
+        ("python3", "Python interpreter"),
+    ]
+    
     missing = []
-    for tool in tools:
-        if shutil.which(tool) is None:
+    max_name_len = max(len(name) for name, _ in dependencies)
+    
+    # ANSI color codes
+    GREEN = "\033[92m"
+    RED = "\033[91m"
+    YELLOW = "\033[93m"
+    RESET = "\033[0m"
+    
+    for tool, description in dependencies:
+        available = shutil.which(tool) is not None
+        status = f"{GREEN}✅ Installed{RESET}" if available else f"{RED}❌ Missing{RESET}"
+        print(f"  {tool:<{max_name_len}}  {status}  ({description})")
+        
+        if not available:
             missing.append(tool)
     
-    if missing:
-        log_error(f"Missing system tools: {', '.join(missing)}")
-        sys.exit(1)
+    print("="*60)
     
-    # log("Environment OK.") # Reduced verbosity
+    if missing:
+        print(f"\n{RED}❌ Missing dependencies: {', '.join(missing)}{RESET}")
+        print(f"\n{YELLOW}Install missing tools before proceeding.{RESET}\n")
+        sys.exit(1)
+    else:
+        print(f"\n{GREEN}✅ All dependencies satisfied!{RESET}\n")
 
 # --- Commands ---
 def cmd_check(args):
     check_env()
-    log_success("System Environment Check Passed.")
 
 def cmd_clean(args):
     log("Cleaning build artifacts...")
@@ -259,7 +285,8 @@ def cmd_test(args):
     # === FUNCTIONALITY TESTS ===
     if run_functional:
         # 1. Random Corner Case Test
-        random_hex = os.path.join(BUILD_DIR, "random_corner_test.hex")
+        func_dir = os.path.join(PROJECT_ROOT, "tests", "functional")
+        random_hex = os.path.join(func_dir, "random_corner_test.hex")
         gen_script = os.path.join(TOOLS_DIR, "random_instruction_test_gen.py")
         
         if os.path.exists(gen_script):
@@ -268,7 +295,7 @@ def cmd_test(args):
             
             try:
                 subprocess.check_call(cmd_gen, shell=True, cwd=PROJECT_ROOT, stdout=subprocess.DEVNULL)
-                tests.append(("Random Corner Case Test", random_hex, "functional"))
+                # No need to add to tests list - will be picked up with other hex files
             except subprocess.CalledProcessError:
                  log_error("Failed to generate random test.")
         
@@ -544,9 +571,9 @@ def main():
 
 \033[1mCOMMAND OVERVIEW\033[0m
 
-  \033[93m1. CHECK SYSTEM\033[0m
-     \033[1m./runner.py check\033[0m
-     - Verifies installation of: Verilator, Make, G++, SDL2, Python3.
+  \033[93m1. CHECK DEPENDENCIES\033[0m
+     \033[1m./runner.py env\033[0m
+     - Verifies all system dependencies (Verilator, Make, SDL2, etc.).
 
   \033[93m2. CLEAN WORKSPACE\033[0m
      \033[1m./runner.py clean\033[0m
@@ -603,8 +630,9 @@ Maintainer: Ismail Melik
     )
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
     
-    # Command: check
-    p_check = subparsers.add_parser("check", help="Check system environment dependencies")
+    # Command: env
+    p_env = subparsers.add_parser("env", help="Check system environment dependencies")
+    p_env.set_defaults(func=cmd_check)
     
     # Command: clean
     p_clean = subparsers.add_parser("clean", help="Clean build directory and artifacts")

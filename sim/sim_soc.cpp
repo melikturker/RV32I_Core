@@ -6,6 +6,7 @@
 #include "VSoC_Video_Mem.h"
 #include <SDL2/SDL.h>
 #include <iostream>
+#include <fstream>
 
 // Constants
 const int WIDTH = 320;
@@ -81,8 +82,23 @@ int main(int argc, char** argv) {
     SDL_Event e;
     
     // Load Application Hex (handled by Verilog $readmemh in I_mem typically)
-    // We assume the user creates 'app.hex' before running.
-
+    
+    // Check for +PERF_ENABLE plusarg
+    bool perf_enabled = false;
+    for (int i = 1; i < argc; i++) {
+        if (std::string(argv[i]) == "+PERF_ENABLE") {
+            perf_enabled = true;
+            break;
+        }
+    }
+    
+    if (perf_enabled) {
+        std::cout << "[SIM] Performance monitoring ENABLED" << std::endl;
+        top->perf_enable = 1;
+    } else {
+        top->perf_enable = 0;
+    }
+    
     std::cout << "Starting Simulation Loop..." << std::endl;
 
     while (!Verilated::gotFinish() && !quit) {
@@ -137,7 +153,7 @@ int main(int argc, char** argv) {
         }
     }
 
-    // Cleanup
+    // Cleanup (Performance metrics auto-saved via Verilog final block)
     top->final();
     SDL_DestroyTexture(texture);
     SDL_DestroyRenderer(renderer);

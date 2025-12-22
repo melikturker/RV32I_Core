@@ -8,7 +8,7 @@ The processor uses a specific memory map to interact with the display peripheral
 
 | Region | Start Address | End Address | Description |
 |--------|---------------|-------------|-------------|
-| **VRAM** | `0x00008000` | `0x00053000` | Video Memory (640x480 pixels). Each byte maps to a pixel (8-bit color). |
+| **VRAM** | `0x00008000` | `0x00053000` | Video Memory (320x240 pixels). Each 4 bytes map to a pixel (32-bit ARGB). |
 | **Control**| `0x00054000` | - | Refresh Trigger. Writing to this address forces a frame update. |
 
 > **Note:** The applications simply write to these addresses using `SB` (Store Byte) or `SW` (Store Word) instructions. The C++ Simulation wrapper captures these writes via DPI to render the graphics window.
@@ -52,7 +52,7 @@ The processor uses a specific memory map to interact with the display peripheral
 
 ### 5. `bouncing_square.s`
 **Purpose**: Basic Physics & Collision.
-*   **Origin**: This work was inspired by a Microprocessor Systems term project developed by my colleagues Fatih Siyah and Kerem Şen for ARM Cortex-M0. The original idea was a bouncing square that changes color on wall collisions, much like a DVD screensaver. During development, however, the screen refresh was accidentally omitted, producing a permanent trail effect. Interestingly, this “bug” turned out to be far more visually appealing than the intended behavior. 🙂
+*   **Origin**: This work was inspired by a Microprocessor Systems term project developed by my colleagues Fatih Siyah and Kerem Şen for ARM Cortex-M0. The original idea was a bouncing square that changes color on wall collisions, much like a DVD screensaver. During development, however, the screen refresh was accidentally omitted, producing a permanent trail effect. Interestingly, this “bug” turned out to be far more visually appealing than the intended behavior. (By the way, the square hits the corner, do not worry) 🙂
 *   **Visual**: A configurable square (default 25px) that changes color upon wall collision.
 *   **Logic**: Physics updates, boundary checking (`SQ_SIZE` configurable), collision-based color changes.
     

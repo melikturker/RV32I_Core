@@ -1,7 +1,20 @@
-# RV32I Processor Core
+# RV32I Core
 
-A synthesized, 5-stage pipelined RISC-V processor implementation in Verilog. This project provides a complete cycle-accurate simulation environment, including a verification suite with coverage analysis and a memory-mapped graphical output system.
+![License](https://img.shields.io/badge/license-MIT-blue.svg)
+![Verilog](https://img.shields.io/badge/verilog-2005-green.svg)
+![Simulation](https://img.shields.io/badge/simulation-verilator-orange.svg)
 
+## 📖 Overview
+
+**RV32I Core** is a cycle-accurate, 5-stage pipelined RISC-V processor implementation written in Verilog. It implements the complete **RV32I Base Integer Instruction Set** and is designed for education, simulation, and experimentation.
+
+Key highlights:
+*   **5-Stage Pipeline:** Classic Fetch, Decode, Execute, Memory, Writeback architecture.
+*   **Hazard Management:** Full checking for RAW hazards (Forwarding/Stalling) and Control hazards (Branch Prediction/Flushing).
+*   **Visual Simulation:** Includes a custom **SDL2-based GUI** for real-time visualization of the VRAM (320x240 32-bit Color).
+*   **Robust Verification:** Comprehensive suite of functional tests, random instruction labeling, and performance benchmarks.
+
+This project serves as a clean reference implementation for understanding processor microarchitecture and pipeline controls.
 
 <p align="center">
   <img src="docs/videos/audio_bars.gif" width="45%" />
@@ -12,9 +25,10 @@ A synthesized, 5-stage pipelined RISC-V processor implementation in Verilog. Thi
 *   [Features](#-features)
 *   [Architecture](#-architecture)
 *   [Directory Structure](#-directory-structure)
-*   [Quick Start (CLI)](#-quick-start-cli)
+*   [Quick Start](#-quick-start-cli)
 *   [Verification & Coverage](#-verification--coverage)
 *   [Applications & Demos](#-applications--demos)
+*   [Documentation](#-documentation)
 
 ---
 
@@ -35,6 +49,7 @@ A synthesized, 5-stage pipelined RISC-V processor implementation in Verilog. Thi
     *   **GUI**: Real-time SDL2-based visualization (640x480 resolution) for graphical applications.
 *   **Verification**: 
     *   Regression suite including directed tests and random instruction generation.
+    *   **Performance regression testing** with automated baseline comparison.
     *   Hardware Coverage analysis using Verilator.
 
 ## 🏗 Architecture
@@ -52,22 +67,26 @@ The core relies on a comprehensive Verilog implementation located in `src/`.
 
 | Directory | Description |
 |-----------|-------------|
-| `app/`    | RISC-V Assembly applications and demos. |
+| `app/`    | RISC-V Assembly applications and demos (colors, audio, graphics). |
 | `src/`    | Verilog source code for Core, Memory, and Peripherals. |
 | `sim/`    | C++ Simulation wrappers (Headless, GUI, Coverage). |
-| `tests/`  | Verification suite: Manual tests and Random Generator. |
-| `build/`  | Compilation artifacts (Auto-generated). |
-| `logs/`   | Simulation logs, coverage reports, and annotated source. |
-| `runner.py`| Unified CLI tool for building, running, and testing. |
+| `tests/`  | Test suite: Functional tests and Performance benchmarks. |
+| `docs/`   | Documentation (Architecture, Metrics, guides). |
+| `tools/`  | [Python utilities](tools/README.md) (assembler, performance analysis, test generation). |
+| `build/`* | Compilation artifacts (Auto-generated, not in repo). |
+| `logs/`*  | Simulation logs, coverage reports, and annotated source (Auto-generated). |
+| `runner.py`| Unified CLI tool for build, run, test, and coverage. |
+
+*\*Auto-generated directories created during build/test runs.*
 
 ## 🚀 Quick Start (CLI)
 
 The `runner.py` script manages the entire build and verification lifecycle.
 
-### 1. Verification
-Check system dependencies:
+### 1. Check Dependencies
+Verify all system dependencies are installed:
 ```bash
-./runner.py check
+./runner.py env
 ```
 
 ### 2. Run Applications
@@ -80,13 +99,49 @@ Run the provided demos to visualize processor activity (GUI auto-launches if VRA
 ./runner.py run app/audio_bars.s
 ```
 
-### 3. Run Regression Tests
-Execute the full test suite (Manual + Random):
+### 3. Run Tests
+
+Execute the full test suite (Functional + Performance):
 ```bash
 ./runner.py test
 ```
 
-### 4. Coverage Analysis
+Run only functional tests (hazards, corner cases, ISA coverage):
+```bash
+./runner.py test --functional
+```
+
+Run only performance benchmarks:
+```bash
+./runner.py test --performance
+```
+
+### 4. Performance Benchmarking
+
+Run performance benchmarks with detailed analysis:
+```bash
+# Run all benchmarks
+./runner.py test --performance
+
+# Show detailed per-benchmark reports
+./runner.py test --performance --verbose
+
+# Save summary to file
+./runner.py test --performance --save
+```
+
+### 5. Regression Testing
+
+Check for performance regressions against baseline:
+```bash
+# Save current performance as baseline
+./runner.py test --performance --save-baseline
+
+# Check for regressions
+./runner.py test --performance --check-regression
+```
+
+### 6. Coverage Analysis
 Generate a code coverage report to see which Verilog lines are executed:
 ```bash
 ./runner.py coverage
@@ -95,8 +150,8 @@ Generate a code coverage report to see which Verilog lines are executed:
 
 ## 🧪 Verification & Coverage
 The project uses a dual-verification strategy:
-1.  **Directed Tests**: Specific assembly files (`tests/manual/`) checking corner cases (Hazards, Zero Register, etc.).
-2.  **Random Testing**: `tests/test_gen.py` generates random instruction streams to stress-test the pipeline logic.
+1.  **Directed Tests**: Specific assembly files (`tests/functional/`) checking corner cases (Hazards, Zero Register, etc.).
+2.  **Random Testing**: `tools/random_instruction_test_gen.py` generates random instruction streams to stress-test the pipeline logic.
 
 Use the `coverage` command to generate an annotated HTML-like report of the Verilog source, identifying untested logic paths.
 
@@ -125,6 +180,14 @@ Use the `coverage` command to generate an annotated HTML-like report of the Veri
 | ![Square](docs/videos/bouncing_square.gif) | |
 
 See [app/README.md](app/README.md) for more details.
+
+## 📚 Documentation
+
+*   **[Architecture Guide](docs/ARCHITECTURE.md)** - Pipeline stages, hazard handling, memory system
+*   **[Metrics Reference](docs/METRICS.md)** - Explanation of all performance metrics
+*   **[Performance Benchmarks](tests/performance/README.md)** - Benchmark suite and regression testing
+*   **[Applications](app/README.md)** - Demo applications and visual examples
+
 
 ## 📜 License
 This project is licensed under the **MIT License**. See [LICENSE](LICENSE) for details.

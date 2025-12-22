@@ -13,15 +13,12 @@ obj_dir/
 tests/sim_headless
 sim/display/virtual_screen
 
+# Logs / Debugging
+logs/
+
 # Generated Tests & Results
 tests/results/
 *.hex
-tests/*.hex
-tests/dmem_dump.txt
-tests/reg_dump.txt
-tests/generated_test.txt
-tests/expected_dmem.txt
-tests/expected_regs.txt
 
 # IDE/Editor
 .vscode/

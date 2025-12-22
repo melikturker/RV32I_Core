@@ -91,8 +91,24 @@ int main(int argc, char** argv) {
     // 3. Setup Verilator
     Verilated::commandArgs(argc, argv);
     // Verilated::traceEverOn(true); // Optimization: Disabled unused trace overhead
-    
+    // 3. Instantiate DUT
     VSoC* top = new VSoC;
+
+    // Check for performance monitoring flag
+    bool perf_enabled = false;
+    for (int i = 1; i < argc; i++) {
+        if (std::string(argv[i]) == "+PERF_ENABLE") {
+            perf_enabled = true;
+            break;
+        }
+    }
+    
+    if (perf_enabled) {
+        top->perf_enable = 1;
+        std::cout << "[SIM] Performance monitoring ENABLED" << std::endl;
+    } else {
+        top->perf_enable = 0;
+    }
 
     // 4. Trace Setup
 #if VM_TRACE

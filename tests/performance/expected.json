@@ -1,0 +1,74 @@
+{
+  "array_sum": {
+    "ipc": 0.6875221721666355,
+    "cycles": 262153,
+    "instructions": 180236,
+    "pipeline_util": 0.6250281324264838,
+    "stall_rate": 0.06249785430645463,
+    "branch_rate": 0.18180607647750727,
+    "jump_rate": 0.0
+  },
+  "memcpy": {
+    "ipc": 0.7407557269509157,
+    "cycles": 442382,
+    "instructions": 327697,
+    "pipeline_util": 0.7037221225095054,
+    "stall_rate": 0.037035864931213296,
+    "branch_rate": 0.199989624561714,
+    "jump_rate": 3.051599495875763e-06
+  },
+  "matrix_transpose": {
+    "ipc": 0.8400251428238594,
+    "cycles": 412046,
+    "instructions": 346129,
+    "pipeline_util": 0.839716924809366,
+    "stall_rate": 0.00031064492799347644,
+    "branch_rate": 0.09614912359264899,
+    "jump_rate": 2.8890962617983467e-06
+  },
+  "fibonacci": {
+    "ipc": 0.7410398924787097,
+    "cycles": 999988,
+    "instructions": 741031,
+    "pipeline_util": 0.7370508446101354,
+    "stall_rate": 0.007968095617147406,
+    "branch_rate": 0.13978497525744538,
+    "jump_rate": 0.15591385515585718
+  },
+  "binary_search": {
+    "ipc": 0.7136054421768707,
+    "cycles": 7350,
+    "instructions": 5245,
+    "pipeline_util": 0.7123809523809523,
+    "stall_rate": 0.0014965986394557824,
+    "branch_rate": 0.20171591992373689,
+    "jump_rate": 0.0020972354623450904
+  },
+  "bubble_sort": {
+    "ipc": 0.5637484014802576,
+    "cycles": 530178,
+    "instructions": 298887,
+    "pipeline_util": 0.5017069738842427,
+    "stall_rate": 0.06204519991399115,
+    "branch_rate": 0.22268616567465296,
+    "jump_rate": 0.2201233241994466
+  },
+  "gcd": {
+    "ipc": 0.6666730000760009,
+    "cycles": 999988,
+    "instructions": 666665,
+    "pipeline_util": 0.6666680000160002,
+    "stall_rate": 0.0,
+    "branch_rate": 0.2499996249990625,
+    "jump_rate": 0.24999512498781246
+  },
+  "_tolerances": {
+    "ipc": 0.02,
+    "cycles": 0.05,
+    "instructions": 0.01,
+    "pipeline_util": 0.02,
+    "stall_rate": 0.01,
+    "branch_rate": 0.01,
+    "jump_rate": 0.01
+  }
+}

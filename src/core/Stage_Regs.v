@@ -175,13 +175,14 @@ module ID_EX(PC_in, PC_4_in, imm_I_in, imm_S_in, imm_B_in, imm_U_in, imm_J_in, o
 
 endmodule 
 
-module EX_MEM(PC_in, PC_4_in, ALU_result_in, imm_U_in, rd_in, we_reg_in, we_mem_in, RF_sel_in, datain_in, is_load_in, is_signed_in, word_length_in,
-				  PC_out, PC_4_out, ALU_result_out, imm_U_out, rd_out, we_reg_out, we_mem_out, RF_sel_out, datain_out, is_load_out, is_signed_out, word_length_out, nop, clk, rst);
+module EX_MEM(PC_in, PC_4_in, ALU_result_in, imm_U_in, rd_in, we_reg_in, we_mem_in, RF_sel_in, datain_in, is_load_in, is_signed_in, word_length_in, opcode_in,
+				  PC_out, PC_4_out, ALU_result_out, imm_U_out, rd_out, we_reg_out, we_mem_out, RF_sel_out, datain_out, is_load_out, is_signed_out, word_length_out, opcode_out, nop, clk, rst);
 		
 				input [31:0] PC_in, PC_4_in, ALU_result_in, imm_U_in, datain_in;
 				input [4:0] rd_in;
 				input [2:0] RF_sel_in;
 				input [1:0] word_length_in;
+				input [6:0] opcode_in;
 				input is_load_in, is_signed_in, we_reg_in, we_mem_in, nop, clk, rst;
 				
 				
@@ -189,6 +190,7 @@ module EX_MEM(PC_in, PC_4_in, ALU_result_in, imm_U_in, rd_in, we_reg_in, we_mem_
 				output reg [4:0] rd_out;
 				output reg [2:0] RF_sel_out;
 				output reg [1:0] word_length_out;
+				output reg [6:0] opcode_out;
 				output reg is_load_out, is_signed_out, we_reg_out, we_mem_out;
 				
 		
@@ -203,6 +205,7 @@ module EX_MEM(PC_in, PC_4_in, ALU_result_in, imm_U_in, rd_in, we_reg_in, we_mem_
 					datain_out <= 32'b0;
 					is_signed_out <= 1'b0;
 					word_length_out <= 2'b0;
+					opcode_out <= 7'b0;
 					we_reg_out <= 1'b0;
 					we_mem_out <= 1'b0;
 					is_load_out <= 1'b0;
@@ -217,6 +220,7 @@ module EX_MEM(PC_in, PC_4_in, ALU_result_in, imm_U_in, rd_in, we_reg_in, we_mem_
 					datain_out <= datain_in;
 					is_signed_out <= is_signed_in;
 					word_length_out <= word_length_in;
+					opcode_out <= opcode_in;
 					
 					if (!nop) begin
 						we_reg_out <= we_reg_in;
@@ -228,19 +232,21 @@ module EX_MEM(PC_in, PC_4_in, ALU_result_in, imm_U_in, rd_in, we_reg_in, we_mem_
 						we_reg_out <= 1'b0;
 						we_mem_out <= 1'b0;
 						is_load_out <= 1'b0;
+						opcode_out <= 7'b0;
 					end
 				end
 			end 
 endmodule 
 
-module MEM_WB(PC_in, PC_4_in, ALU_result_in, imm_U_in, rd_in, we_reg_in, RF_sel_in, is_signed_in, word_length_in, data_mem_in,
-				  PC_out, PC_4_out, ALU_result_out, imm_U_out, rd_out, we_reg_out, RF_sel_out, is_signed_out, word_length_out, data_mem_out, clk, rst);
+module MEM_WB(PC_in, PC_4_in, ALU_result_in, imm_U_in, rd_in, we_reg_in, RF_sel_in, is_signed_in, word_length_in, data_mem_in, opcode_in,
+				  PC_out, PC_4_out, ALU_result_out, imm_U_out, rd_out, we_reg_out, RF_sel_out, is_signed_out, word_length_out, data_mem_out, opcode_out, clk, rst);
 				  
 					input [31:0] PC_in, PC_4_in, ALU_result_in, imm_U_in;
                     input [31:0] data_mem_in;
 					input [4:0] rd_in;
 					input [2:0] RF_sel_in;
 					input [1:0] word_length_in;
+					input [6:0] opcode_in;
 					input we_reg_in, is_signed_in, clk, rst;
 					
 					
@@ -249,6 +255,7 @@ module MEM_WB(PC_in, PC_4_in, ALU_result_in, imm_U_in, rd_in, we_reg_in, RF_sel_
 					output reg [4:0] rd_out;
 					output reg [2:0] RF_sel_out;
 					output reg [1:0] word_length_out;
+					output reg [6:0] opcode_out;
 					output reg we_reg_out, is_signed_out;
 					
 					always @(posedge clk) begin
@@ -260,6 +267,7 @@ module MEM_WB(PC_in, PC_4_in, ALU_result_in, imm_U_in, rd_in, we_reg_in, RF_sel_
 							rd_out <= 5'b0;
 							RF_sel_out <= 3'b0;
 							word_length_out <= 2'b0;
+							opcode_out <= 7'b0;
 							we_reg_out <= 1'b0;
 							is_signed_out <= 1'b0;
                             data_mem_out <= 32'b0;
@@ -275,6 +283,7 @@ module MEM_WB(PC_in, PC_4_in, ALU_result_in, imm_U_in, rd_in, we_reg_in, RF_sel_
 							is_signed_out <= is_signed_in;
 							word_length_out <= word_length_in;
                             data_mem_out <= data_mem_in;
+                            opcode_out <= opcode_in;
 						end
 					end
 endmodule 

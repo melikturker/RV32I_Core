@@ -66,6 +66,21 @@ headless_verilate: $(VERILOG_SRCS) $(BUILD_DIR)/sim_headless.cpp
 
 headless: headless_verilate
 
+# --- 1b. Headless Trace Target (With VCD Waveform) ---
+# Output: build/sim_headless_trace
+HEADLESS_TRACE_EXE = $(BUILD_DIR)/sim_headless_trace
+
+headless_trace_verilate: $(VERILOG_SRCS) $(BUILD_DIR)/sim_headless.cpp
+	@echo "[Makefile] Building Headless Simulation with Trace..."
+	@$(VERILATOR) $(V_FLAGS) $(OPT_FLAGS) \\\t\t--trace --trace-depth 99 --trace-structs \\\t\t$(VERILOG_SRCS) $(PWD)/$(BUILD_DIR)/sim_headless.cpp \
+		$(PWD)/$(BUILD_DIR)/sim_vram_dpi.cpp \
+		-LDFLAGS "-pthread -lrt" \
+		-CFLAGS "-I$(PWD)/$(SIM_DIR) $(OPT_FLAGS)" \
+		-o ../sim_headless_trace
+	@make -s -C $(OBJ_DIR) -f VSoC.mk
+
+headless_trace: headless_trace_verilate
+
 # --- 2. GUI Target (SDL2 Visualization) ---
 # Output: build/sim_gui
 GUI_EXE = $(BUILD_DIR)/sim_gui

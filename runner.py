@@ -135,6 +135,12 @@ def cmd_run(args):
     mode_str = "gui" if use_gui else "headless"
     sim_bin_name = "sim_gui" if use_gui else "sim_headless"
     
+    # Trace mode check - only works with headless
+    if args.trace and use_gui:
+        log_error("Trace mode (--trace) is only supported with headless simulation.")
+        log("Application requires GUI (VRAM usage detected). Cannot generate waveform.")
+        sys.exit(1)
+    
     # Ensure simulator exists (Auto-build if needed)
     sim_bin = os.path.join(BUILD_DIR, sim_bin_name)
     if not os.path.exists(sim_bin):
@@ -162,6 +168,20 @@ def cmd_run(args):
     else:
         log_error(f"Unsupported file type: {ext}")
         sys.exit(1)
+    
+    # Prepare VCD path if trace enabled
+    vcd_path = None
+    if args.trace:
+        import datetime
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        app_name = os.path.splitext(os.path.basename(args.file))[0]
+        vcd_filename = f"{app_name}_{timestamp}.vcd"
+        
+        waveform_dir = os.path.join(PROJECT_ROOT, "logs", "waveforms")
+        os.makedirs(waveform_dir, exist_ok=True)
+        
+        vcd_path = os.path.join(waveform_dir, vcd_filename)
+        log(f"Waveform will be saved to: {vcd_path}")
             
     # Run Simulation
     log(f"Launching simulation [{mode_str}] (Auto-Detected)...")
@@ -172,9 +192,10 @@ def cmd_run(args):
         if os.path.exists(perf_log):
             os.remove(perf_log)
     
-    # Add performance monitoring if requested
+    # Build command with flags
     perf_flag = "+PERF_ENABLE" if args.perf else ""
-    cmd = f"{sim_bin} +TESTFILE={hex_path} {perf_flag}".strip()
+    vcd_flag = f"+VCD={vcd_path}" if args.trace else ""
+    cmd = f"{sim_bin} +TESTFILE={hex_path} {perf_flag} {vcd_flag}".strip()
     
     try:
         result = subprocess.run(cmd, shell=True, cwd=PROJECT_ROOT)
@@ -199,6 +220,35 @@ def cmd_run(args):
         if result.returncode != 0:
             log_error("Simulation failed.")
             sys.exit(result.returncode)
+        
+        # Launch GTKWave if --view flag and trace was enabled
+        if args.trace and args.view and vcd_path and os.path.exists(vcd_path):
+            log("Launching GTKWave...")
+            
+            # Check for GTKWave template
+            template_path = None
+            if hasattr(args, 'template') and args.template:
+                template_dir = os.path.join(PROJECT_ROOT, "tb", "templates")
+                template_file = f"{args.template}.gtkw"
+                template_path = os.path.join(template_dir, template_file)
+                
+                if not os.path.exists(template_path):
+                    log(f"Warning: Template '{args.template}' not found. Opening without template.")
+                    template_path = None
+            
+            # Launch GTKWave
+            try:
+                if template_path:
+                    subprocess.Popen(["gtkwave", vcd_path, "-a", template_path], 
+                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                else:
+                    subprocess.Popen(["gtkwave", vcd_path],
+                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                log_success(f"GTKWave launched with {vcd_path}")
+            except FileNotFoundError:
+                log_error("GTKWave not found. Install with: sudo apt install gtkwave")
+            except Exception as e:
+                log_error(f"Failed to launch GTKWave: {e}")
             
     except KeyboardInterrupt:
         print("\n")
@@ -587,9 +637,14 @@ def main():
      - \033[96m--mode coverage\033[0m : Enable Verification Coverage (logs/coverage.dat).
 
   \033[93m4. RUN APPLICATION\033[0m
-     \033[1m./runner.py run <file>\033[0m
+     \033[1m./runner.py run <file> [OPTIONS]\033[0m
      - Assembles and executes a RISC-V program.
      - \033[96m<file>\033[0m  : Path to assembly (.s) or machine code (.hex) file.
+     - \033[96m--perf\033[0m : Enable performance monitoring and show report.
+     - \033[96m--trace\033[0m : Generate VCD waveform (logs/waveforms/<name>_<timestamp>.vcd).
+     - \033[96m--view\033[0m  : Auto-launch GTKWave after trace generation (requires --trace).
+     - \033[96m--template <name>\033[0m : Use GTKWave template from tb/templates/<name>.gtkw
+       Available templates: core_signals, hazard_debug, memory_access, decode_alu
      - Note: GUI mode is auto-detected based on VRAM usage.
 
   \033[93m5. RUN TESTS\033[0m
@@ -646,6 +701,9 @@ Maintainer: Ismail Melik
     p_run = subparsers.add_parser("run", help="Run a RISC-V application (.s or .hex)")
     p_run.add_argument("file", help="Path to the application assembly (.s) or hex (.hex) file")
     p_run.add_argument("--perf", action="store_true", help="Enable performance monitoring and show report after execution")
+    p_run.add_argument("--trace", action="store_true", help="Enable VCD waveform generation (only for headless mode)")
+    p_run.add_argument("--view", action="store_true", help="Auto-launch GTKWave after trace generation (requires --trace)")
+    p_run.add_argument("--template", type=str, help="GTKWave template name (e.g., 'core_signals' loads templates/core_signals.gtkw)")
     # p_run.add_argument("--gui", action="store_true", help="Launch in Graphical User Interface (GUI) mode") (Removed/Auto-detected)
     
     # Command: test
@@ -671,7 +729,7 @@ Maintainer: Ismail Melik
 
     args = parser.parse_args()
     
-    if args.command == "check":
+    if args.command == "env":
         cmd_check(args)
     elif args.command == "clean":
         cmd_clean(args)

@@ -70,6 +70,7 @@ The core relies on a comprehensive Verilog implementation located in `src/`.
 | `app/`    | RISC-V Assembly applications and demos (colors, audio, graphics). |
 | `src/`    | Verilog source code for Core, Memory, and Peripherals. |
 | `sim/`    | C++ Simulation wrappers (Headless, GUI, Coverage). |
+| `tb/`     | Testbench files for Verilog simulation. |
 | `tests/`  | Test suite: Functional tests and Performance benchmarks. |
 | `docs/`   | Documentation (Architecture, Metrics, guides). |
 | `tools/`  | [Python utilities](tools/README.md) (assembler, performance analysis, test generation). |

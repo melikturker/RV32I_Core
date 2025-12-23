@@ -305,33 +305,41 @@ module Core (clk, rst, perf_enable, program_finished, video_addr, video_data, vi
 	reg program_finished;
 	reg [3:0] zero_instr_count;
 	reg [3:0] pc_stuck_count;
+	reg [7:0] warmup_counter;  // 100 cycle warmup to prevent false finish during reset
 	
 	always @(posedge clk) begin
 		if (rst) begin
 			program_finished <= 0;
 			zero_instr_count <= 0;
 			pc_stuck_count <= 0;
+			warmup_counter <= 0;
 		end else if (!program_finished) begin
-			// Check 1: Consecutive zero instructions
-			if (instr == 32'h00000000)
-				zero_instr_count <= zero_instr_count + 1;
-			else
-				zero_instr_count <= 0;
-			
-			// Check 2: PC stuck (not changing) - reuse PC_IF_prev
-		if (PC_IF == PC_IF_prev)
-			pc_stuck_count <= pc_stuck_count + 1;
-		else
-			pc_stuck_count <= 0;
-		
-		// Stop if either condition met
-		if (zero_instr_count >= 10 || pc_stuck_count >= 10) begin
-			program_finished <= 1;
-			$display("[CORE] Program finished at cycle %d", perf_monitor.cycle_count);
-			// Save metrics immediately (for headless tests that finish quickly)
-			perf_monitor.save_metrics();
-			$finish;  // STOP SIMULATION NOW!
-		end
+			// Warmup phase: wait 100 cycles after reset before starting detection
+			if (warmup_counter < 100) begin
+				warmup_counter <= warmup_counter + 1;
+			end else begin
+				// After warmup, start finish detection
+				
+				// Check 1: Consecutive zero instructions
+				if (instr == 32'h00000000)
+					zero_instr_count <= zero_instr_count + 1;
+				else
+					zero_instr_count <= 0;
+				
+				// Check 2: PC stuck (not changing)
+				if (PC_IF == PC_IF_prev)
+					pc_stuck_count <= pc_stuck_count + 1;
+				else
+					pc_stuck_count <= 0;
+				
+				// Stop if either condition met
+				if (zero_instr_count >= 10 || pc_stuck_count >= 10) begin
+					program_finished <= 1;
+					$display("[CORE] Program finished at cycle %d", perf_monitor.cycle_count);
+					perf_monitor.save_metrics();
+					$finish;
+				end
+			end
 		end
 	end
 	

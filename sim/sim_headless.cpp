@@ -17,7 +17,7 @@
 #include "common/SharedMemory.h"
 
 // Constants
-const int MAX_CYCLES = 10000000; // Large limit for demos
+const int MAX_CYCLES = 100000000; // 100M cycles - safety timeout (adaptive stop via $finish)
 vluint64_t main_time = 0;
 
 double sc_time_stamp() {
@@ -38,6 +38,7 @@ extern "C" void setup_dpi_vram(uint32_t* vram, volatile uint32_t* refresh);
 int main(int argc, char** argv) {
     // 1. Argument Parsing
     std::string test_file = "";
+    std::string vcd_file = "trace.vcd";  // Default VCD filename
     bool dump_enabled = false;
     bool trace_enabled = false;
     bool interactive_mode = false;
@@ -46,6 +47,9 @@ int main(int argc, char** argv) {
         std::string arg = argv[i];
         if (arg.find("+TESTFILE=") == 0) {
             test_file = arg.substr(10);
+        } else if (arg.find("+VCD=") == 0) {
+            vcd_file = arg.substr(5);
+            trace_enabled = true;  // Auto-enable trace if VCD path given
         } else if (arg == "+DUMP") {
             dump_enabled = true;
         } else if (arg == "+TRACE") {
@@ -90,7 +94,12 @@ int main(int argc, char** argv) {
 
     // 3. Setup Verilator
     Verilated::commandArgs(argc, argv);
-    // Verilated::traceEverOn(true); // Optimization: Disabled unused trace overhead
+    
+    // Enable tracing if trace mode is enabled
+    if (trace_enabled) {
+        Verilated::traceEverOn(true);
+    }
+    
     // 3. Instantiate DUT
     VSoC* top = new VSoC;
 
@@ -116,7 +125,8 @@ int main(int argc, char** argv) {
     if (trace_enabled) {
         tfp = new VerilatedVcdC;
         top->trace(tfp, 99);
-        tfp->open("trace.vcd");
+        tfp->open(vcd_file.c_str());
+        std::cout << "[SIM] VCD trace enabled: " << vcd_file << std::endl;
     }
 #endif
 

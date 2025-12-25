@@ -40,11 +40,22 @@ class VCDAnalyzer:
         
         # Define signals we want to extract
         required_signals = {
+            # PC waterfall (all 5 stages)
             'PC_IF', 'PC_ID', 'PC_EX', 'PC_MEM', 'PC_WB',
+            # Instructions
             'instr',
-            'opcode_EX', 'opcode_MEM', 'opcode_WB',
-            'flush', 'stall_FU', 'nop_EX',
-            'Z', 'N', 'PC_sel'
+            # Opcode waterfall (ID through WB)
+            'opcode_ID', 'opcode_EX', 'opcode_MEM', 'opcode_WB',
+            # Control signals
+            'flush', 'stall_FU',
+            # Pipeline NOP/bubble signals
+            'nop_ID', 'nop_EX', 'nop_MEM',
+            # Forwarding signals
+            'FU_sel1', 'FU_sel2',
+            # ALU flags
+            'Z', 'N',
+            # PC select
+            'PC_sel'
         }
         
         with open(self.vcd_path, 'r') as f:
@@ -192,11 +203,15 @@ class VCDAnalyzer:
         lines.append("=" * 120)
         lines.append(f"Source: {Path(self.vcd_path).name}")
         lines.append("")
-        lines.append(f"{'Cycle':<6} | {'IF_PC':<8} {'ID_PC':<8} {'EX_PC':<8} {'MEM_PC':<8} {'WB_PC':<8} | {'EX_op':<6} {'Flush':<5} {'Stall':<5} | {'Notes':<20}")
-        lines.append("-" * 120)
+        # Two-line header with full names for clarity
+        # Control columns: Flush(5) Stall(5) nID(3) nEX(3) nM(2) Fwd1(4) Fwd2(4) = ~32 chars
+        lines.append(f"{'Cycle':<6} | {'PC:':<44} | {'OP:':<19} | {'Flush':<5} {'Stall':<5} {'nID':<3} {'nEX':<3} {'nM':<2} {'Fwd1':<4} {'Fwd2':<4} | {'Notes':<30}")
+        lines.append(f"{'':6} | {'IF':<8} {'ID':<8} {'EX':<8} {'MEM':<8} {'WB':<8} | {'ID':<4} {'EX':<4} {'MEM':<4} {'WB':<4} | {'':5} {'':5} {'':3} {'':3} {'':2} {'':4} {'':4} | {'':30}")
+        lines.append("-" * 140)
         
         for cycle in self.cycles:
             time = cycle * 10 + 5
+            prev_time = (cycle - 1) * 10 + 5 if cycle > 0 else time
             
             # Get PC values for all stages
             pc_if = self._get_signal('PC_IF', time)
@@ -205,34 +220,91 @@ class VCDAnalyzer:
             pc_mem = self._get_signal('PC_MEM', time)
             pc_wb = self._get_signal('PC_WB', time)
             
-            # Get control signals
+            # Get opcode waterfall
+            opc_id = self._get_signal('opcode_ID', time)
             opc_ex = self._get_signal('opcode_EX', time)
+            opc_mem = self._get_signal('opcode_MEM', time)
+            opc_wb = self._get_signal('opcode_WB', time)
+            
+            # Get control signals
             flush = self._get_signal('flush', time)
             stall = self._get_signal('stall_FU', time)
+            nop_id = self._get_signal('nop_ID', time)
+            nop_ex = self._get_signal('nop_EX', time)
+            nop_mem = self._get_signal('nop_MEM', time)
+            fu_sel1 = self._get_signal('FU_sel1', time)
+            fu_sel2 = self._get_signal('FU_sel2', time)
             
-            # Format values
+            # Track previous cycle for hazard detection
+            prev_opc_ex = self._get_signal('opcode_EX', prev_time) if cycle > 0 else None
+            
+            # Format PC values
             pc_if_str = f"{pc_if:08x}" if pc_if is not None else "--------"
             pc_id_str = f"{pc_id:08x}" if pc_id is not None else "--------"
             pc_ex_str = f"{pc_ex:08x}" if pc_ex is not None else "--------"
             pc_mem_str = f"{pc_mem:08x}" if pc_mem is not None else "--------"
             pc_wb_str = f"{pc_wb:08x}" if pc_wb is not None else "--------"
             
-            opc_str = f"0x{opc_ex:02x}" if opc_ex is not None else "0x--"
-            flush_str = str(flush) if flush is not None else "-"
-            stall_str = str(stall) if stall is not None else "-"
+            # Format opcode waterfall
+            opc_id_str = f"{opc_id:02x}" if opc_id is not None else "--"
+            opc_ex_str = f"{opc_ex:02x}" if opc_ex is not None else "--"
+            opc_mem_str = f"{opc_mem:02x}" if opc_mem is not None else "--"
+            opc_wb_str = f"{opc_wb:02x}" if opc_wb is not None else "--"
             
-            # Add notes for important events
+            # Format control signals (individual columns)
+            f_str = "1" if flush == 1 else "0"
+            s_str = "1" if stall == 1 else "0"
+            nid_str = str(nop_id) if nop_id is not None else "-"
+            nex_str = str(nop_ex) if nop_ex is not None else "-"
+            nmem_str = str(nop_mem) if nop_mem is not None else "-"
+            f1_str = str(fu_sel1) if fu_sel1 is not None else "-"
+            f2_str = str(fu_sel2) if fu_sel2 is not None else "-"
+            
+            # Generate smart notes (priority-based)
             notes = ""
-            if flush == 1:
-                notes = "FLUSH!"
-            elif stall == 1:
-                notes = "STALL"
-            elif opc_ex == 0x73:
-                notes = "EBREAK in EX"
             
-            lines.append(f"{cycle:<6} | {pc_if_str} {pc_id_str} {pc_ex_str} {pc_mem_str} {pc_wb_str} | {opc_str:<6} {flush_str:<5} {stall_str:<5} | {notes:<20}")
+            # Priority 1: Control flow changes
+            if flush == 1 and opc_ex == 0x63:
+                notes = "Branch taken"
+            elif flush == 1 and opc_ex == 0x6F:
+                notes = "JAL taken"
+            elif flush == 1 and opc_ex == 0x67:
+                notes = "JALR taken"
+            elif flush == 1 and opc_ex == 0:
+                notes = "Flushed"
+            
+            # Priority 2: Hazards
+            elif stall == 1:
+                if prev_opc_ex == 0x03:  # Previous was LOAD
+                    notes = "Load-use stall"
+                else:
+                    notes = "RAW stall"
+            
+            # Priority 3: Forwarding events
+            elif fu_sel1 == 1 or fu_sel2 == 1:
+                fwd_type = "FWD" if fu_sel1 == 1 else "FWD(rs2)"
+                if opc_ex == 0x03:
+                    notes = f"LOAD + {fwd_type}"
+                elif opc_ex == 0x23:
+                    notes = f"STORE + {fwd_type}"
+                elif opc_ex == 0x63:
+                    notes = f"BRANCH + {fwd_type}"
+                else:
+                    notes = fwd_type
+            
+            # Priority 4: Special instructions
+            elif opc_ex == 0x73:
+                notes = "EBREAK/ECALL"
+            elif opc_ex == 0x03:
+                notes = "LOAD"
+            elif opc_ex == 0x23:
+                notes = "STORE"
+            elif opc_ex == 0x63:
+                notes = "BRANCH"
+            
+            lines.append(f"{cycle:<6} | {pc_if_str} {pc_id_str} {pc_ex_str} {pc_mem_str} {pc_wb_str} | {opc_id_str:<4} {opc_ex_str:<4} {opc_mem_str:<4} {opc_wb_str:<4} | {f_str:<5} {s_str:<5} {nid_str:<3} {nex_str:<3} {nmem_str:<2} {f1_str:<4} {f2_str:<4} | {notes:<30}")
         
-        lines.append("-" * 120)
+        lines.append("-" * 140)
         lines.append(f"Total cycles: {len(self.cycles)}")
         
         with open(output_path, 'w') as f:

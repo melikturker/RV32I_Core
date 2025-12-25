@@ -93,8 +93,8 @@ module ID_EX(PC_in, PC_4_in, imm_I_in, imm_S_in, imm_B_in, imm_U_in, imm_J_in, o
                     nop_out <= 1'b0;
 				end
 				else if(we || nop) begin // Update if we OR nop (Bubble)
-				// CRITICAL: Opcode must ALWAYS propagate (even in HOLD) for EBREAK detection
-				opcode_out <= opcode_in;
+		// Opcode: Clear on NOP (flush), otherwise propagate
+		opcode_out <= nop ? 7'b0 : opcode_in;
 				
 				if (we) begin
                     PC_out <= PC_in; 

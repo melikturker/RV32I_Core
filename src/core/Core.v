@@ -164,10 +164,14 @@ module Core (clk, rst, perf_enable, program_finished, video_addr, video_data, vi
 			rs1, rs2, rd_ID, ALU_sel_ID, op2_sel_ID, RF_sel_ID, we_mem_ID, we_reg_ID, is_load_ID, is_signed_ID, word_length_ID,
 			
 			PC_EX, PC_4_EX, I_imm_EX, S_imm_EX, B_imm_EX, U_imm_EX, J_imm_EX, opcode_EX, func3_EX,
-			rs1_EX, rs2_EX, rd_EX, ALU_sel_EX, op2_sel_EX, RF_sel_EX1, we_mem_EX, we_reg_EX, is_load_EX, is_signed_EX, word_length_EX, is_bubble_EX, nop_EX, we_EX, clk, rst);
+			rs1_EX, rs2_EX, rd_EX, ALU_sel_EX, op2_sel_EX, RF_sel_EX1, we_mem_EX, we_reg_EX, is_load_EX, is_signed_EX, word_length_EX, is_bubble_EX, flush, we_EX, clk, rst);
 
 	// ------------ EX stage ------------
-
+	
+	// nop_EX is used by Stall_Unit and performance monitoring
+	// Connect it to ID_EX's nop_out (is_bubble_EX)
+	assign nop_EX = is_bubble_EX;
+	
 	
 	ALU ALU(op1, op2, ALU_sel_EX, is_signed_EX, ALU_out_EX, Z, N);
 	

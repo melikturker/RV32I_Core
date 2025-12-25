@@ -225,52 +225,74 @@ def cmd_run(args):
         if args.trace and args.view and vcd_path and os.path.exists(vcd_path):
             log("Launching GTKWave...")
             
-            # Check for GTKWave template
-            template_path = None
-            if hasattr(args, 'template') and args.template:
-                template_dir = os.path.join(PROJECT_ROOT, "tb", "templates")
-                template_file = f"{args.template}.gtkw"
-                template_path = os.path.join(template_dir, template_file)
-                
-                if not os.path.exists(template_path):
-                    log(f"Warning: Template '{args.template}' not found. Opening without template.")
-                    template_path = None
+            # Load GTKWave template (default: core_signals)
+            template_dir = os.path.join(PROJECT_ROOT, "tb", "templates")
+            template_name = args.template if args.template else "core_signals"
+            template_file = f"{template_name}.gtkw"
+            template_path = os.path.join(template_dir, template_file)
+            
+            if not os.path.exists(template_path):
+                log(f"Warning: Template '{template_name}' not found. Opening without template.")
+                template_path = None
             
             # Launch GTKWave
             try:
                 if template_path:
                     subprocess.Popen(["gtkwave", vcd_path, "-a", template_path], 
                                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    log_success(f"GTKWave launched with template: {template_name}")
                 else:
                     subprocess.Popen(["gtkwave", vcd_path],
                                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                log_success(f"GTKWave launched with {vcd_path}")
+                    log_success(f"GTKWave launched (no template)")
             except FileNotFoundError:
                 log_error("GTKWave not found. Install with: sudo apt install gtkwave")
             except Exception as e:
                 log_error(f"Failed to launch GTKWave: {e}")
         
-        # Generate execution trace log if --log flag
-        if args.trace and args.log and vcd_path and os.path.exists(vcd_path):
-            log("Generating execution trace log...")
-            trace_parser = os.path.join(TOOLS_DIR, "vcd_trace_parser.py")
+        # Generate VCD analysis reports if --analyze flag
+        if args.trace and args.analyze and vcd_path and os.path.exists(vcd_path):
+            log("Generating VCD analysis reports...")
             
-            import datetime
-            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-            app_name = os.path.splitext(os.path.basename(args.file))[0]
-            trace_filename = f"exec_trace_{app_name}_{timestamp}.txt"
-            trace_path = os.path.join(PROJECT_ROOT, "logs", trace_filename)
+            # Parse analyze mode
+            def parse_analyze_mode(mode_str):
+                if mode_str == 'all':
+                    return ['exec', 'pipeline', 'events', 'state']
+                elif mode_str == 'minimal':
+                    return ['exec', 'pipeline']
+                elif mode_str == 'debug':
+                    return ['pipeline', 'events']
+                else:
+                    # Custom comma-separated
+                    return [x.strip() for x in mode_str.split(',')]
             
+            # Create trace directory (matching VCD timestamp)
+            vcd_name = os.path.splitext(os.path.basename(vcd_path))[0]  # e.g., "counter_loop_20251225_153851"
+            trace_dir = os.path.join(PROJECT_ROOT, "logs", "traces", vcd_name)
+            os.makedirs(trace_dir, exist_ok=True)
+            
+            # Import analyzer
+            sys.path.insert(0, TOOLS_DIR)
             try:
-                subprocess.check_call(
-                    f"python3 {trace_parser} {vcd_path} {trace_path}",
-                    shell=True,
-                    cwd=PROJECT_ROOT,
-                   stdout=subprocess.DEVNULL
-                )
-                log_success(f"Execution trace saved: {trace_path}")
-            except subprocess.CalledProcessError as e:
-                log_error(f"Failed to generate execution trace: {e}")
+                from vcd_analyzer import VCDAnalyzer
+                
+                analyzer = VCDAnalyzer(vcd_path)
+                outputs = parse_analyze_mode(args.analyze)
+                
+                # Generate outputs
+                for output_type in outputs:
+                    output_file = os.path.join(trace_dir, f"{output_type}.txt")
+                    try:
+                        analyzer.generate(output_type, output_file)
+                    except Exception as e:
+                        log_error(f"Failed to generate {output_type}: {e}")
+                
+                log_success(f"Analysis reports: logs/traces/{vcd_name}/")
+                
+            except ImportError as e:
+                log_error(f"Failed to import vcd_analyzer: {e}")
+            except Exception as e:
+                log_error(f"VCD analysis failed: {e}")
             
     except KeyboardInterrupt:
         print("\n")
@@ -664,9 +686,13 @@ def main():
      - \033[96m<file>\033[0m  : Path to assembly (.s) or machine code (.hex) file.
      - \033[96m--perf\033[0m : Enable performance monitoring and show report.
      - \033[96m--trace\033[0m : Generate VCD waveform (logs/waveforms/<name>_<timestamp>.vcd).
+     - \033[96m--analyze <MODE>\033[0m : VCD text analysis (requires --trace).
+         Modes: all (4 traces), minimal (exec+pipeline), debug (pipeline+events)
+         Custom: exec,pipeline,events,state
+         Output: logs/traces/<name>_<timestamp>/
      - \033[96m--view\033[0m  : Auto-launch GTKWave after trace generation (requires --trace).
      - \033[96m--template <name>\033[0m : Use GTKWave template from tb/templates/<name>.gtkw
-       Available templates: core_signals, hazard_debug, memory_access, decode_alu
+       Default template: core_signals
      - Note: GUI mode is auto-detected based on VRAM usage.
 
   \033[93m5. RUN TESTS\033[0m
@@ -724,8 +750,13 @@ Maintainer: Ismail Melik
     p_run.add_argument("file", help="Path to the application assembly (.s) or hex (.hex) file")
     p_run.add_argument("--perf", action="store_true", help="Enable performance monitoring and show report after execution")
     p_run.add_argument("--trace", action="store_true", help="Enable VCD waveform generation (only for headless mode)")
+    p_run.add_argument("--analyze", type=str, default=None,
+                      help="""VCD analysis output types (requires --trace):
+  all      - All 4 traces (exec+pipeline+events+state)
+  minimal  - Exec + Pipeline traces only  
+  debug    - Pipeline + Events (for bug hunting)
+  Custom combination: exec,pipeline,events,state""")
     p_run.add_argument("--view", action="store_true", help="Auto-launch GTKWave after trace generation (requires --trace)")
-    p_run.add_argument("--log", action="store_true", help="Generate execution trace log from VCD (requires --trace)")
     p_run.add_argument("--template", type=str, help="GTKWave template name (e.g., 'core_signals' loads templates/core_signals.gtkw)")
     # p_run.add_argument("--gui", action="store_true", help="Launch in Graphical User Interface (GUI) mode") (Removed/Auto-detected)
     

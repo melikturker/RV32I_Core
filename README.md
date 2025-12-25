@@ -47,6 +47,9 @@ This project serves as a clean reference implementation for understanding proces
 *   **Simulation**:
     *   **Headless**: High-performance C++ simulation via Verilator for regression testing.
     *   **GUI**: Real-time SDL2-based visualization (640x480 resolution) for graphical applications.
+*   **Debugging**:
+    *   **VCD Analysis**: Text-based trace generation from waveforms (execution, pipeline, events).
+    *   **Auto-bug detection**: Automatically identifies flush bugs, infinite loops, etc.
 *   **Verification**: 
     *   Regression suite including directed tests and random instruction generation.
     *   **Performance regression testing** with automated baseline comparison.
@@ -70,6 +73,7 @@ The core relies on a comprehensive Verilog implementation located in `src/`.
 | `app/`    | RISC-V Assembly applications and demos (colors, audio, graphics). |
 | `src/`    | Verilog source code for Core, Memory, and Peripherals. |
 | `sim/`    | C++ Simulation wrappers (Headless, GUI, Coverage). |
+| `tb/`     | Testbench files for Verilog simulation. |
 | `tests/`  | Test suite: Functional tests and Performance benchmarks. |
 | `docs/`   | Documentation (Architecture, Metrics, guides). |
 | `tools/`  | [Python utilities](tools/README.md) (assembler, performance analysis, test generation). |
@@ -99,7 +103,23 @@ Run the provided demos to visualize processor activity (GUI auto-launches if VRA
 ./runner.py run app/audio_bars.s
 ```
 
-### 3. Run Tests
+### 3. Debug with VCD Analysis
+Generate text-based analysis from VCD waveforms for easier debugging:
+```bash
+# Full analysis (all 5 trace types + auto-bug detection)
+./runner.py run test.s --trace --analyze=all
+
+# Quick check (execution + pipeline only)
+./runner.py run test.s --trace --analyze=minimal
+
+# Bug hunting (pipeline + events + auto-detection)
+./runner.py run test.s --trace --analyze=debug
+```
+Output: `logs/traces/test_TIMESTAMP/` (exec, pipeline, events, state, report)
+
+See [tools/README.md](tools/README.md#vcd-analyzer) for details.
+
+### 4. Run Tests
 
 Execute the full test suite (Functional + Performance):
 ```bash
@@ -116,7 +136,7 @@ Run only performance benchmarks:
 ./runner.py test --performance
 ```
 
-### 4. Performance Benchmarking
+### 5. Performance Benchmarking
 
 Run performance benchmarks with detailed analysis:
 ```bash
@@ -130,7 +150,7 @@ Run performance benchmarks with detailed analysis:
 ./runner.py test --performance --save
 ```
 
-### 5. Regression Testing
+### 6. Regression Testing
 
 Check for performance regressions against baseline:
 ```bash
@@ -141,7 +161,7 @@ Check for performance regressions against baseline:
 ./runner.py test --performance --check-regression
 ```
 
-### 6. Coverage Analysis
+### 7. Coverage Analysis
 Generate a code coverage report to see which Verilog lines are executed:
 ```bash
 ./runner.py coverage

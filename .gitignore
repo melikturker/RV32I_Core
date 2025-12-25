@@ -7,6 +7,7 @@ coverage.datvvp
 sim_build/
 build/
 *.gtkw
+!tb/templates/*.gtkw
 obj_dir/
 
 # Compiled Binaries
@@ -33,3 +34,6 @@ brain/
 # Python
 __pycache__/
 *.pyc
+
+# Personal Development Planning
+development_plan.md

@@ -12,6 +12,10 @@ module PC_sel_Unit(opcode, funct3, is_flushed, Z, N, RF_sel_in, flush, RF_sel_ou
 
 	
 	always @(*) begin
+		// Default assignments to prevent latch
+		RF_sel_out = RF_sel_in;
+		PC_sel = 2'b00;  // PC+4 (normal sequential execution)
+		flush = 1'b0;
 	
 		if(rst) begin
 			RF_sel_out = 3'b000;
@@ -41,16 +45,18 @@ module PC_sel_Unit(opcode, funct3, is_flushed, Z, N, RF_sel_in, flush, RF_sel_ou
 					end
 				end
 				
-				7'b0010011: begin 
+				7'b0010011: begin // I-type (addi, andi, slli, ...)
 					RF_sel_out = RF_sel_in;
+					// PC_sel and flush use defaults (00, 0)
 				end
 				
-				7'b0110011: begin 
+				7'b0110011: begin // R-type (add, sub, and, ...)
 					RF_sel_out = RF_sel_in;
+					// PC_sel and flush use defaults (00, 0)
 				end 
 				
 				
-				7'b1100011: begin // B tyepes
+				7'b1100011: begin // B types
 					
 					RF_sel_out = RF_sel_in;
 					

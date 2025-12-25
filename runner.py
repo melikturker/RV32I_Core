@@ -249,6 +249,28 @@ def cmd_run(args):
                 log_error("GTKWave not found. Install with: sudo apt install gtkwave")
             except Exception as e:
                 log_error(f"Failed to launch GTKWave: {e}")
+        
+        # Generate execution trace log if --log flag
+        if args.trace and args.log and vcd_path and os.path.exists(vcd_path):
+            log("Generating execution trace log...")
+            trace_parser = os.path.join(TOOLS_DIR, "vcd_trace_parser.py")
+            
+            import datetime
+            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            app_name = os.path.splitext(os.path.basename(args.file))[0]
+            trace_filename = f"exec_trace_{app_name}_{timestamp}.txt"
+            trace_path = os.path.join(PROJECT_ROOT, "logs", trace_filename)
+            
+            try:
+                subprocess.check_call(
+                    f"python3 {trace_parser} {vcd_path} {trace_path}",
+                    shell=True,
+                    cwd=PROJECT_ROOT,
+                   stdout=subprocess.DEVNULL
+                )
+                log_success(f"Execution trace saved: {trace_path}")
+            except subprocess.CalledProcessError as e:
+                log_error(f"Failed to generate execution trace: {e}")
             
     except KeyboardInterrupt:
         print("\n")
@@ -703,6 +725,7 @@ Maintainer: Ismail Melik
     p_run.add_argument("--perf", action="store_true", help="Enable performance monitoring and show report after execution")
     p_run.add_argument("--trace", action="store_true", help="Enable VCD waveform generation (only for headless mode)")
     p_run.add_argument("--view", action="store_true", help="Auto-launch GTKWave after trace generation (requires --trace)")
+    p_run.add_argument("--log", action="store_true", help="Generate execution trace log from VCD (requires --trace)")
     p_run.add_argument("--template", type=str, help="GTKWave template name (e.g., 'core_signals' loads templates/core_signals.gtkw)")
     # p_run.add_argument("--gui", action="store_true", help="Launch in Graphical User Interface (GUI) mode") (Removed/Auto-detected)
     

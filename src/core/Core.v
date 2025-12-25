@@ -256,15 +256,6 @@ module Core (clk, rst, perf_enable, program_finished, video_addr, video_data, vi
 	// Retired: Count valid instructions at WB
 	wire instruction_retired = valid_WB;
 	
-	// Track PC_IF for program finish detection
-	reg [31:0] PC_IF_prev;
-	always @(posedge clk) begin
-		if (rst)
-			PC_IF_prev <= 0;
-		else
-			PC_IF_prev <= PC_IF;
-	end
-	
 	// 2. Stall: Direct from Forwarding Unit
 	wire pipeline_stall = stall_FU;
 	
@@ -298,48 +289,24 @@ module Core (clk, rst, perf_enable, program_finished, video_addr, video_data, vi
 	
 	
 	// === Program Finish Detection ===
-	// Stop counting when:
-	// 1. 10 consecutive 0x00000000 instructions OR
-	// 2. PC stuck (doesn't change for 10 cycles)
-	// Note: PC_IF_prev is already defined in instruction tracking above
+	// Detect EBREAK (0x00100073) or ECALL (0x00000073) at WB stage
+	// RISC-V SYSTEM opcode: 7'b1110011
+	
 	reg program_finished;
-	reg [3:0] zero_instr_count;
-	reg [3:0] pc_stuck_count;
-	reg [7:0] warmup_counter;  // 100 cycle warmup to prevent false finish during reset
+	
+	// Detect EBREAK/ECALL: opcode=1110011, funct3=000
+	// EBREAK: imm12=000000000001, ECALL: imm12=000000000000
+	// Note: No valid_WB check - EBREAK at program end has valid=0 but should still terminate
+	wire is_ebreak_or_ecall = (opcode_WB == 7'b1110011);
 	
 	always @(posedge clk) begin
 		if (rst) begin
 			program_finished <= 0;
-			zero_instr_count <= 0;
-			pc_stuck_count <= 0;
-			warmup_counter <= 0;
-		end else if (!program_finished) begin
-			// Warmup phase: wait 100 cycles after reset before starting detection
-			if (warmup_counter < 100) begin
-				warmup_counter <= warmup_counter + 1;
-			end else begin
-				// After warmup, start finish detection
-				
-				// Check 1: Consecutive zero instructions
-				if (instr == 32'h00000000)
-					zero_instr_count <= zero_instr_count + 1;
-				else
-					zero_instr_count <= 0;
-				
-				// Check 2: PC stuck (not changing)
-				if (PC_IF == PC_IF_prev)
-					pc_stuck_count <= pc_stuck_count + 1;
-				else
-					pc_stuck_count <= 0;
-				
-				// Stop if either condition met
-				if (zero_instr_count >= 10 || pc_stuck_count >= 10) begin
-					program_finished <= 1;
-					$display("[CORE] Program finished at cycle %d", perf_monitor.cycle_count);
-					perf_monitor.save_metrics();
-					$finish;
-				end
-			end
+		end else if (!program_finished && is_ebreak_or_ecall) begin
+			program_finished <= 1;
+			$display("[CORE] Program finished (EBREAK/ECALL detected) at cycle %d", perf_monitor.cycle_count);
+			perf_monitor.save_metrics();
+			$finish;
 		end
 	end
 	

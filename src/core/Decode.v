@@ -115,6 +115,12 @@ always @(*) begin
 	 
 	end
 
+	7'b1110011: begin // SYSTEM instruction (EBREAK/ECALL/FENCE)
+		// EBREAK/ECALL don't use rs/rd, but we decode for consistency  
+		funct3 = inst[14:12];
+		CU_info = {10'b0, opcode};  // Pass opcode to CU
+	end
+
 endcase
 
 end

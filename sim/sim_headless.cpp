@@ -18,7 +18,7 @@
 
 // Constants
 // Simulation time limit (in time units, 1 cycle = 10 time units)
-const unsigned long long MAX_CYCLES = 10000000;  // 1M cycles - safety timeout (adaptive stop via $finish)
+const unsigned long long MAX_CYCLES = 10000000;  // 1M cycles
 vluint64_t main_time = 0;
 
 double sc_time_stamp() {

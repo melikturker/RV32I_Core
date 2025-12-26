@@ -21,7 +21,7 @@ class VCDAnalyzer:
     1. Execution Trace (PC + instruction flow)
     2. Pipeline Trace (stage-by-stage visualization)
     3. Events Trace (branch/hazard/system events)
-    4. Final State (register file + memory dumps)
+    4. Final State (register file + memory interface signals)
     """
     
     def __init__(self, vcd_path):
@@ -35,7 +35,7 @@ class VCDAnalyzer:
         self._parse_vcd()
     
     def _parse_vcd(self):
-        """Parse VCD file and extract all required signals"""
+        """Parse VCD file and extract all required signals (streaming for large files)"""
         print(f"[VCD Analyzer] Parsing {self.vcd_path}...")
         
         # Define signals we want to extract
@@ -55,79 +55,86 @@ class VCDAnalyzer:
             # ALU flags
             'Z', 'N',
             # PC select
-            'PC_sel'
+            'PC_sel',
+            # Register file (x0-x31)
+            'rf[0]', 'rf[1]', 'rf[2]', 'rf[3]', 'rf[4]', 'rf[5]', 'rf[6]', 'rf[7]',
+            'rf[8]', 'rf[9]', 'rf[10]', 'rf[11]', 'rf[12]', 'rf[13]', 'rf[14]', 'rf[15]',
+            'rf[16]', 'rf[17]', 'rf[18]', 'rf[19]', 'rf[20]', 'rf[21]', 'rf[22]', 'rf[23]',
+            'rf[24]', 'rf[25]', 'rf[26]', 'rf[27]', 'rf[28]', 'rf[29]', 'rf[30]', 'rf[31]'
         }
         
-        with open(self.vcd_path, 'r') as f:
-            lines = f.readlines()
-        
-        # Phase 1: Parse variable definitions
+        # Phase 1: Parse variable definitions (streaming)
         in_definitions = True
-        for line in lines:
-            line = line.strip()
-            
-            if line.startswith('$var'):
-                # Format: $var wire 32 ! PC_IF [31:0] $end
-                parts = line.split()
-                if len(parts) >= 5:
-                    identifier = parts[3]
-                    var_name = parts[4]
+        current_time = 0
+        
+        with open(self.vcd_path, 'r') as f:
+            for line in f:
+                line = line.strip()
+                
+                if in_definitions:
+                    if line.startswith('$var'):
+                        # Format: $var wire 32 ! PC_IF [31:0] $end
+                        parts = line.split()
+                        if len(parts) >= 5:
+                            identifier = parts[3]
+                            var_name = parts[4]
+                            
+                            # Check if this is a signal we want
+                            for sig in required_signals:
+                                if sig in var_name:
+                                    self.signal_map[identifier] = sig
+                                    self.signals[sig] = {}
+                                    break
                     
-                    # Check if this is a signal we want
-                    for sig in required_signals:
-                        if sig in var_name:
-                            self.signal_map[identifier] = sig
-                            self.signals[sig] = {}
-                            break
-            
-            elif line.startswith('$enddefinitions'):
-                in_definitions = False
-                break
+                    elif line.startswith('$enddefinitions'):
+                        in_definitions = False
+                        break
         
         print(f"[VCD Analyzer] Found {len(self.signal_map)} signals")
         
-        # Phase 2: Parse value changes (after definitions)
-        current_time = 0
-        
-        for line in lines:
-            line = line.strip()
+        # Phase 2: Parse value changes (streaming)
+        with open(self.vcd_path, 'r') as f:
+            in_definitions = True
             
-            # Skip definition section
-            if in_definitions:
-                if line.startswith('$enddefinitions'):
-                    in_definitions = False
-                continue
-            
-            # Parse value changes (after definitions)
-            # Time stamp
-            if line.startswith('#'):
-                current_time = int(line[1:])
-                if current_time not in self.timestamps:
-                    self.timestamps.append(current_time)
-            
-            # Binary value: b10101010 !
-            elif line.startswith('b'):
-                match = re.match(r'b([01x]+)\s+(\S+)', line)
-                if match:
-                    binary_val = match.group(1)
-                    identifier = match.group(2)
-                    
+            for line in f:
+                line = line.strip()
+                
+                # Skip definition section
+                if in_definitions:
+                    if line.startswith('$enddefinitions'):
+                        in_definitions = False
+                    continue
+                
+                # Parse value changes
+                # Time stamp
+                if line.startswith('#'):
+                    current_time = int(line[1:])
+                    if current_time not in self.timestamps:
+                        self.timestamps.append(current_time)
+                
+                # Binary value: b10101010 !
+                elif line.startswith('b'):
+                    match = re.match(r'b([01x]+)\s+(\S+)', line)
+                    if match:
+                        binary_val = match.group(1)
+                        identifier = match.group(2)
+                        
+                        if identifier in self.signal_map:
+                            sig_name = self.signal_map[identifier]
+                            try:
+                                # Convert binary to int (replace x with 0)
+                                val = int(binary_val.replace('x', '0'), 2)
+                                self.signals[sig_name][current_time] = val
+                            except ValueError:
+                                pass
+                
+                # Single bit value: 0! or 1!
+                elif len(line) >= 2 and line[0] in ['0', '1']:
+                    value = int(line[0])
+                    identifier = line[1:]
                     if identifier in self.signal_map:
                         sig_name = self.signal_map[identifier]
-                        try:
-                            # Convert binary to int (replace x with 0)
-                            val = int(binary_val.replace('x', '0'), 2)
-                            self.signals[sig_name][current_time] = val
-                        except ValueError:
-                            pass
-            
-            # Single bit value: 0! or 1!
-            elif len(line) >= 2 and line[0] in ['0', '1']:
-                value = int(line[0])
-                identifier = line[1:]
-                if identifier in self.signal_map:
-                    sig_name = self.signal_map[identifier]
-                    self.signals[sig_name][current_time] = value
+                        self.signals[sig_name][current_time] = value
         
         # Extract cycle numbers (assuming 10 time units per cycle)
         self.cycles = [t // 10 for t in self.timestamps if t % 10 == 5]
@@ -402,7 +409,7 @@ class VCDAnalyzer:
     def generate_final_state(self, output_path):
         """
         Generate final state dump (regfile + memory at last cycle)
-        Note: Requires VCD to have regfile/memory signals
+        Extracts register file values from VCD signals
         """
         print(f"[VCD Analyzer] Generating final state dump...")
         
@@ -414,25 +421,77 @@ class VCDAnalyzer:
         lines.append(f"Final Cycle: {self.cycles[-1] if self.cycles else 0}")
         lines.append("")
         
-        # Note: Register file and memory dumps require additional VCD signals
-        # For now, show what's available
-        lines.append("=== AVAILABLE SIGNALS (Final Cycle) ===")
+        if not self.cycles:
+            lines.append("No simulation cycles found in VCD")
+            with open(output_path, 'w') as f:
+                f.write('\n'.join(lines))
+            return
         
-        if self.cycles:
-            final_time = self.cycles[-1] * 10 + 5
+        final_time = self.cycles[-1] * 10 + 5
+        
+        # === REGISTER FILE DUMP ===
+        lines.append("=" * 100)
+        lines.append("REGISTER FILE (Final State)")
+        lines.append("=" * 100)
+        lines.append("")
+        
+        # Check if register file signals are available
+        rf_available = any(f'rf[{i}]' in self.signals for i in range(32))
+        
+        if rf_available:
+            # Display in 4 columns for compact view
+            lines.append(f"{'Reg':<6} {'Hex':<12} {'Dec':<12} | {'Reg':<6} {'Hex':<12} {'Dec':<12}")
+            lines.append("-" * 80)
             
-            for sig_name in sorted(self.signals.keys()):
-                val = self._get_signal(sig_name, final_time)
-                if val is not None:
-                    if isinstance(val, int) and val < 256:
-                        lines.append(f"{sig_name:<20} = 0x{val:08x} ({val})")
-                    else:
-                        lines.append(f"{sig_name:<20} = 0x{val:08x}")
+            for i in range(16):  # 16 rows, 2 registers per row
+                # Left column (x0-x15)
+                reg_name_l = f"x{i}"
+                val_l = self._get_signal(f'rf[{i}]', final_time)
+                hex_l = f"0x{val_l:08x}" if val_l is not None else "--------"
+                dec_l = str(val_l) if val_l is not None else "N/A"
+                
+                # Right column (x16-x31)
+                reg_idx_r = i + 16
+                reg_name_r = f"x{reg_idx_r}"
+                val_r = self._get_signal(f'rf[{reg_idx_r}]', final_time)
+                hex_r = f"0x{val_r:08x}" if val_r is not None else "--------"
+                dec_r = str(val_r) if val_r is not None else "N/A"
+                
+                lines.append(f"{reg_name_l:<6} {hex_l:<12} {dec_l:<12} | {reg_name_r:<6} {hex_r:<12} {dec_r:<12}")
+        else:
+            lines.append("⚠ Register file signals not found in VCD")
+            lines.append("  Add rf[0]-rf[31] to VCD dump configuration for register state")
+        
+        lines.append("")
+        
+        # === MEMORY STATE ===
+        lines.append("=" * 100)
+        lines.append("MEMORY STATE (Final Signals)")
+        lines.append("=" * 100)
+        lines.append("")
+        lines.append("⚠ Full memory array dump not available in VCD")
+        lines.append("  Note: Memory array internals (data[0]-data[N]) are not dumped to VCD by default")
+        lines.append("  Only memory interface signals are available:")
+        lines.append("")
+        
+        # Show available memory-related signals
+        mem_signals = {
+            'D_mem_out': 'Data Memory Output',
+            'video_addr': 'Video Address',
+            'video_data': 'Video Data',
+            'PC_IF': 'Program Counter (IF)',
+            'PC_WB': 'Program Counter (WB)'
+        }
+        
+        for sig, desc in mem_signals.items():
+            val = self._get_signal(sig, final_time)
+            if val is not None:
+                lines.append(f"  {desc:<25} = 0x{val:08x} ({val})")
         
         lines.append("")
         lines.append("=" * 100)
-        lines.append("Note: Full register file and memory dumps require additional VCD signals")
-        lines.append("      Add rf[0]-rf[31] and Memory[0]-Memory[511] to VCD dump for complete state")
+        lines.append("Note: To enable full memory dump, modify Verilog testbench to")
+        lines.append("      explicitly dump memory array contents to VCD file")
         
         with open(output_path, 'w') as f:
             f.write('\n'.join(lines))

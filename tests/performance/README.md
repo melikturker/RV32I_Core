@@ -70,27 +70,6 @@ Baseline metrics are stored in `expected.json` for regression testing.
 
 ## Algorithm Benchmarks
 
-### fibonacci
-**Tests:** Function call overhead and recursion performance
-
-**Algorithm:** Recursive Fibonacci calculation
-
-**Characteristics:**
-- Heavy function calls (JAL/JALR intensive)
-- Stack manipulation on every call (push/pop x1, ra)
-- Branch-heavy (base case checks)
-- Minimal memory operations (register-based computation)
-
-**Performance Profile:**
-- Jump-intensive (high JAL/JALR rate)
-- Low memory stalls
-- Branch misprediction dominant
-- Recursion overhead visible
-
-**Source:** See `fibonacci.s` for recursion depth
-
----
-
 ### binary_search
 **Tests:** Branch-heavy computation with minimal data dependencies
 
@@ -130,27 +109,6 @@ Baseline metrics are stored in `expected.json` for regression testing.
 - Swap operations stress forwarding path
 
 **Source:** See `bubble_sort.s`
-
----
-
-### gcd
-**Tests:** Loop-intensive computation
-
-**Algorithm:** Euclidean GCD algorithm
-
-**Characteristics:**
-- Iterative loop structure
-- Division-free (subtraction-based)
-- Branch-dominated control flow
-- Variable iteration count
-
-**Performance Profile:**
-- Good IPC
-- Low stall rate
-- High branch rate
-- Efficient despite control-heavy code
-
-**Source:** See `gcd.s`
 
 ---
 

@@ -191,7 +191,7 @@ Use the `coverage` command to generate an annotated HTML-like report of the Veri
 | :---: | :---: |
 | ![Colors](docs/videos/colors.gif) | ![XOR](docs/videos/xor_patterns.gif) |
 
-| Dream (Showcase) | Audio Bars |
+| Dream | Audio Bars |
 | :---: | :---: |
 | ![Dream](docs/videos/dream.gif) | ![Audio](docs/videos/audio_bars.gif) |
 

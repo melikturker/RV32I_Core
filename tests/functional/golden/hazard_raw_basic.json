@@ -1,0 +1,10 @@
+{
+    "registers": {
+        "x2": 15,
+        "x6": 23,
+        "x11": 10,
+        "x14": 14
+    },
+    "memory": [],
+    "description": "RAW hazard test: validates EX->EX and MEM->EX forwarding paths"
+}

@@ -11,7 +11,7 @@ module RF(rs1, rs2, rd, data_in, out1, out2, we, clk);
 	output reg [31:0] out1;
 	output reg [31:0] out2;
 	
-	reg 	[31:0] rf [31:0];
+	reg 	[31:0] rf [31:0] /*verilator public*/;
 	
 	integer i;
 	initial begin

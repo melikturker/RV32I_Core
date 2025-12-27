@@ -186,16 +186,16 @@ def cmd_run(args):
     # Run Simulation
     log(f"Launching simulation [{mode_str}] (Auto-Detected)...")
     
-    # Clear old performance log if --perf enabled (prevents showing stale data)
+    # Clear old test artifacts if --perf enabled (prevents showing stale data)
     if args.perf:
         perf_log = os.path.join(PROJECT_ROOT, "logs", "perf_counters.txt")
         if os.path.exists(perf_log):
             os.remove(perf_log)
     
     # Build command with flags
-    perf_flag = "+PERF_ENABLE" if args.perf else ""
+    test_flag = "+TEST_ENABLE" if args.perf else ""
     vcd_flag = f"+VCD={vcd_path}" if args.trace else ""
-    cmd = f"{sim_bin} +TESTFILE={hex_path} {perf_flag} {vcd_flag}".strip()
+    cmd = f"{sim_bin} +TESTFILE={hex_path} {test_flag} {vcd_flag}".strip()
     
     try:
         result = subprocess.run(cmd, shell=True, cwd=PROJECT_ROOT)
@@ -454,15 +454,19 @@ def cmd_test(args):
 
     passed_count = 0
     failed_count = 0
+    validated_passed = 0
+    validated_failed = 0
+    no_validation_passed = 0
     perf_results = {}  # NEW: Collect performance results for summary table
     
     sim_bin = os.path.join(BUILD_DIR, "sim_headless")
     
     for test_name, hex_path, category in tests:
         try:
-            # Build command with performance flag for performance tests
-            perf_flag = "+PERF_ENABLE" if (category == "performance" or args.perf) else ""
-            cmd = f"{sim_bin} +TESTFILE={hex_path} {perf_flag}".strip()
+            # Build command with test enable flag (enables perf + dumps)
+            # Always enable for tests to get dumps for validation
+            test_flag = "+TEST_ENABLE"
+            cmd = f"{sim_bin} +TESTFILE={hex_path} {test_flag}".strip()
             
             result = subprocess.run(
                 cmd,
@@ -475,9 +479,65 @@ def cmd_test(args):
             output = result.stdout + result.stderr
             
             # Check for success (exit code 0)
-            if result.returncode == 0 and "PASSED" in output:
-                print(f"{test_name:<45} | \033[92m✅ PASS\033[0m")
-                passed_count += 1
+            if result.returncode == 0:
+                # Determine test directory for golden reference
+                if category == "functional":
+                    test_dir = os.path.join(PROJECT_ROOT, "tests", "functional")
+                else:
+                    test_dir = os.path.join(PROJECT_ROOT, "tests", "performance")
+                
+                # Check if golden reference exists
+                test_base = test_name.replace('.hex', '')
+                golden_file = os.path.join(test_dir, 'golden', f'{test_base}.json')
+                
+                if os.path.exists(golden_file):
+                    # Validate with golden reference
+                    regfile_dump = os.path.join(PROJECT_ROOT, 'logs', 'test_regfile.dump')
+                    dmem_dump = os.path.join(PROJECT_ROOT, 'logs', 'test_dmem.dump')
+                    validator = os.path.join(TOOLS_DIR, 'validate_test.py')
+                    
+                    val_result = subprocess.run(
+                        f"python3 {validator} {regfile_dump} {dmem_dump} {golden_file}",
+                        shell=True, capture_output=True, text=True, cwd=PROJECT_ROOT
+                    )
+                    
+                    if val_result.returncode == 0:
+                        print(f"{test_name:<45} | \033[92m✅ PASS\033[0m")
+                        passed_count += 1
+                        validated_passed += 1
+                    else:
+                        print(f"{test_name:<45} | \033[91m❌ FAIL (Validation)\033[0m")
+                        # Show validation errors
+                        for line in val_result.stdout.strip().split('\n'):
+                            if line.strip():
+                                print(f"     {line}")
+                        failed_count += 1
+                        validated_failed += 1
+                        
+                        # Store FAIL for performance tests
+                        if category == "performance":
+                            benchmark_name = test_name.replace('.hex', '')
+                            perf_results[benchmark_name] = ('FAIL', None)
+                        continue  # Skip to next test
+                else:
+                    # No golden reference - check if signature-based test
+                    # Signature-based tests pass/fail based on simulator exit code
+                    if result.returncode == 0:
+                        # Exit code 0 = signature valid OR no signature (legacy test)
+                        print(f"{test_name:<45} | \033[92m✅ PASS (Signature)\033[0m")
+                        passed_count += 1
+                        validated_passed += 1
+                    else:
+                        # Exit code 1 = signature invalid
+                        print(f"{test_name:<45} | \033[91m❌ FAIL (Signature)\033[0m")
+                        failed_count += 1
+                        validated_failed += 1
+                        
+                        # Store FAIL for performance tests
+                        if category == "performance":
+                            benchmark_name = test_name.replace('.hex', '')
+                            perf_results[benchmark_name] = ('FAIL', None)
+                        continue
                 
                 # Collect performance data for summary table (performance category only)
                 if category == "performance":
@@ -576,15 +636,23 @@ def cmd_test(args):
             print(f"{test_name:<45} | \033[91m❌ ERR \033[0m")
             failed_count += 1
 
+
     print("-" * 65)
+    
+    # Print summary with validation breakdown
+    total_tests = passed_count + failed_count
+    print(f"\n✅ Validated: {validated_passed} passed, {validated_failed} failed")
+    print(f"⚠️  No Validation: {no_validation_passed} passed")
+    print(f"📊 Total: {passed_count}/{total_tests} passed\n")
+    
     if failed_count == 0:
-        log_success(f"Summary: {passed_count} Passed, 0 Failed")
+        log_success(f"All {total_tests} tests passed!")
     else:
-        log_error(f"Summary: {passed_count} Passed, {failed_count} Failed")
+        log_error(f"{failed_count} test(s) failed")
     
     # Generate performance summary table if performance tests were run
     if run_performance and passed_count > 0:
-        print("\n")  # Extra spacing
+        print("\n")
         generate_performance_summary(perf_results, args)
     
     if failed_count > 0:

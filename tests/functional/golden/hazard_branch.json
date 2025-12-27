@@ -1,0 +1,12 @@
+{
+    "registers": {
+        "x1": 49374,
+        "x3": 1,
+        "x6": 2,
+        "x7": 5,
+        "x11": 42,
+        "x14": 55,
+        "x16": 150
+    },
+    "description": "Branch/control hazard test - EXPECTED CORRECT VALUES. x1=0xC0DE (49374) means all branches executed correctly."
+}

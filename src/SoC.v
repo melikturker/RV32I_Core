@@ -3,7 +3,7 @@
 module SoC(
     input clk,
     input rst,
-    input perf_enable,
+    input test_enable,
     output program_finished
 );
 
@@ -16,7 +16,7 @@ module SoC(
     Core core_inst (
         .clk(clk),
         .rst(rst),
-        .perf_enable(perf_enable),
+        .test_enable(test_enable),
         .program_finished(program_finished),
         .video_addr(video_addr),
         .video_data(video_data),

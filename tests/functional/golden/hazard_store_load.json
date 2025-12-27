@@ -1,0 +1,13 @@
+{
+    "registers": {
+        "x1": 61453,
+        "x2": 123,
+        "x9": 10,
+        "x10": 20,
+        "x11": 30,
+        "x12": 60,
+        "x15": 12,
+        "x17": 43981
+    },
+    "description": "Store-load forwarding test - EXPECTED CORRECT VALUES. x1=0xF00D (61453) means all store-load sequences executed correctly."
+}

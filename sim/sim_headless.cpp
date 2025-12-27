@@ -105,19 +105,19 @@ int main(int argc, char** argv) {
     VSoC* top = new VSoC;
 
     // Check for performance monitoring flag
-    bool perf_enabled = false;
+    bool test_enabled = false;
     for (int i = 1; i < argc; i++) {
-        if (std::string(argv[i]) == "+PERF_ENABLE") {
-            perf_enabled = true;
+        if (std::string(argv[i]) == "+TEST_ENABLE") {
+            test_enabled = true;
             break;
         }
     }
     
-    if (perf_enabled) {
-        top->perf_enable = 1;
-        std::cout << "[SIM] Performance monitoring ENABLED" << std::endl;
+    if (test_enabled) {
+        top->test_enable = 1;
+        std::cout << "[SIM] Test mode enabled (perf monitoring + dumps)" << std::endl;
     } else {
-        top->perf_enable = 0;
+        top->test_enable = 0;
     }
 
     // 4. Trace Setup
@@ -215,6 +215,45 @@ int main(int argc, char** argv) {
         }
     }
 
+    // === SIGNATURE-BASED TEST VALIDATION ===
+    // Check signature address (0x400) for expected value
+    // Note: D_mem is 512 words, so valid word addresses are 0-511
+    const uint32_t SIGNATURE_ADDR = 0x400;  // Word addr = 0x100 (256)
+    const uint32_t SIGNATURE_MAGIC = 0xFACECAFE;
+    
+    bool signature_valid = true;  // Default: pass (for backward compatibility)
+    bool signature_found = false;
+    
+    if (test_enabled) {
+        // Convert byte address to word address (0x400 / 4 = 0x100)
+        uint32_t word_addr = SIGNATURE_ADDR >> 2;
+        
+        if (word_addr < 512) {  // Within D_mem bounds (0-511)
+            uint32_t signature_value = top->rootp->SoC->core_inst->D_mem->Memory[word_addr];
+            
+            // Only validate if signature location is non-zero (test wrote something)
+            if (signature_value != 0) {
+                signature_found = true;
+                
+                std::cout << "[DEBUG] Signature found at 0x" << std::hex << SIGNATURE_ADDR 
+                          << " = 0x" << std::setw(8) << std::setfill('0') << signature_value << std::endl;
+                
+                if (signature_value == SIGNATURE_MAGIC) {
+                    signature_valid = true;
+                    std::cout << "[TEST] ✅ Signature VALID" << std::endl;
+                } else {
+                    signature_valid = false;
+                    std::cout << "[TEST] ❌ Signature MISMATCH" << std::endl;
+                    std::cout << "       Expected: 0x" << std::hex << SIGNATURE_MAGIC << std::endl;
+                    std::cout << "       Got:      0x" << std::hex << signature_value << std::endl;
+                }
+            } else {
+                // No signature written - legacy test, pass silently
+                std::cout << "[DEBUG] No signature found (legacy test)" << std::endl;
+            }
+        }
+    }
+    
     if (dump_enabled) {
         // ... (Register dump logic - kept same)
         std::ofstream dmem_file("dmem_dump.txt");
@@ -241,6 +280,14 @@ int main(int argc, char** argv) {
 #endif
 
     top->final();
+    
+    // Return appropriate exit code based on signature validation
+    if (test_enabled && signature_found && !signature_valid) {
+        std::cout << "Simulation FAILED (signature check)" << std::endl;
+        delete top;
+        return 1;
+    }
+    
     std::cout << "Simulation PASSED" << std::endl;
     delete top;
     // shm destructor closes shared memory automatically

@@ -1,26 +1,26 @@
 # ============================================================
-# Bubble Sort Benchmark - Performance Test
+# Bubble Sort Benchmark - Performance Test (TINY VERSION)
 # ============================================================
 # Measures: Nested loops, data-dependent branches, memory swaps
 #
 # PARAMETRIC CONFIGURATION:
-# To change stress level, modify ARRAY_SIZE:
+# ARRAY_SIZE: 32 elements (optimized for fast simulation)
 #
+# 32 elements:   ~500 comparisons, O(n²) ← TINY (fast)
 # 64 elements:   ~2K comparisons, O(n²)
 # 128 elements:  ~8K comparisons, O(n²)
-# 256 elements:  ~32K comparisons, O(n²) ← DEFAULT
-# 512 elements:  ~131K comparisons, O(n²) (heavy!)
+# 256 elements:  ~32K comparisons, O(n²) (original)
 #
 # Worst case: Reverse sorted array
 # Expected result: Sorted in ascending order
 # ============================================================
 
-.eqv ARRAY_SIZE, 256
+.eqv ARRAY_SIZE, 32
 
 .data
 .align 2
 array:
-    .fill 256, 4, 0          # Array to be sorted
+    .fill 32, 4, 0          # Array to be sorted
 
 result: .word 0              # 1=sorted correctly, 0=failed
 

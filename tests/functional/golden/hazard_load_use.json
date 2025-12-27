@@ -1,0 +1,10 @@
+{
+    "registers": {
+        "x1": 48879,
+        "x5": 50,
+        "x8": 200,
+        "x12": 77,
+        "x16": 119
+    },
+    "description": "Load-use hazard test - EXPECTED CORRECT VALUES. x1=0xBEEF means test passed all checks. If x1!=0xBEEF, pipeline has load-use hazard bug."
+}

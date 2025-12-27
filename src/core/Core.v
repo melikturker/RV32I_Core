@@ -1,9 +1,9 @@
 `timescale 1ns / 1ps
 
-module Core (clk, rst, perf_enable, program_finished, video_addr, video_data, video_we);
+module Core (clk, rst, test_enable, program_finished, video_addr, video_data, video_we);
 
 	input clk, rst;
-	input perf_enable;              // Performance monitoring enable
+	input test_enable;              // Test mode: enables perf monitoring + result dumps
 	output program_finished;        // Signal when program ends (ebreak detected)
 	
     // Video Interface Ports
@@ -308,6 +308,20 @@ module Core (clk, rst, perf_enable, program_finished, video_addr, video_data, vi
 			program_finished <= 0;
 		end else if (!program_finished && is_ebreak_or_ecall) begin
 			program_finished <= 1;
+			
+			// === Test Mode: Dump state for validation ===
+			if (test_enable) begin
+				// Dump register file (all 32 registers)
+				$writememh("logs/test_regfile.dump", regFile.rf);
+				
+				// Dump data memory (first 1024 words = 4KB)
+				// Note: User will be informed we only check first 1024 words
+				$writememh("logs/test_dmem.dump", D_mem.Memory, 0, 1023);
+				
+				$display("[DUMP] Register file saved to logs/test_regfile.dump");
+				$display("[DUMP] Data memory (first 1024 words) saved to logs/test_dmem.dump");
+			end
+			
 			$display("[CORE] Program finished (EBREAK/ECALL detected) at cycle %d", perf_monitor.cycle_count);
 			perf_monitor.save_metrics();
 			$finish;
@@ -318,7 +332,7 @@ module Core (clk, rst, perf_enable, program_finished, video_addr, video_data, vi
 	Performance_Monitor perf_monitor (
 		.clk(clk),
 		.rst(rst),
-		.perf_enable(perf_enable),
+		.test_enable(test_enable),
 		.instruction_retired(instruction_retired),
 		.pipeline_stall(pipeline_stall),
 		.pipeline_bubble(pipeline_bubble),

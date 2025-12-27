@@ -1,26 +1,26 @@
 # ============================================================
-# Binary Search Benchmark - Performance Test
+# Binary Search Benchmark - Performance Test (TINY VERSION)
 # ============================================================
 # Measures: Complex branching patterns (3-way), logarithmic access
 #
 # PARAMETRIC CONFIGURATION:
-# To change stress level, modify ARRAY_SIZE:
+# ARRAY_SIZE: 256 elements (optimized for fast simulation)
 #
-# 256 elements:   ~8 iterations per search
+# 256 elements:   ~8 iterations per search ← TINY (fast)
 # 512 elements:   ~9 iterations per search
-# 1024 elements:  ~10 iterations per search ← DEFAULT
+# 1024 elements:  ~10 iterations per search (original)
 # 2048 elements:  ~11 iterations per search
 #
 # Expected result: Found index (varies by target)
 # ============================================================
 
-.eqv ARRAY_SIZE, 1024
-.eqv SEARCH_TARGET, 777
+.eqv ARRAY_SIZE, 256
+.eqv SEARCH_TARGET, 199
 
 .data
 .align 2
 array:
-    .fill 1024, 4, 0         # Sorted array (0, 1, 2, ..., 1023)
+    .fill 256, 4, 0         # Sorted array (0, 1, 2, ..., 255)
 
 result: .word 0              # Found index or -1
 

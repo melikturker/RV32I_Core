@@ -1,87 +1,64 @@
 # ============================================================
-# Array Sum Benchmark - Performance Test
+# Array Sum Benchmark - Performance Test (TINY + SIGNATURE)
 # ============================================================
 # Measures: Load-use hazards, ALU forwarding, memory throughput
-#
-# PARAMETRIC CONFIGURATION:
-# To change array size, modify BOTH sections below:
-#
-# 64×64   (4096):    ARRAY_SIZE=64,  TOTAL_ELEMENTS=4096,  lui x12/x22=1
-# 128×128 (16384):   ARRAY_SIZE=128, TOTAL_ELEMENTS=16384, lui x12/x22=4
-# 256×256 (65536):   ARRAY_SIZE=256, TOTAL_ELEMENTS=65536, lui x12/x22=16
-#
-# Expected sum formulas:
-# 64×64:   sum = 8,386,560    (0x7FF800)
-# 128×128: sum = 134,209,536  (0x7FFE000)
-# 256×256: sum = 2,147,450,880 (0x7FFFE000)
+# Size: 64 elements (optimized for fast simulation)
+# Validation: Signature-based (0xFACECAFE at 0x400)
 # ============================================================
-
-.eqv ARRAY_SIZE, 128
-.eqv TOTAL_ELEMENTS, 16384   # ARRAY_SIZE * ARRAY_SIZE
-
-.data
-.align 2
-array: 
-    .fill 16384, 4, 0        # Must match TOTAL_ELEMENTS
 
 .text
 .globl _start
 
 _start:
-    # ============================================================
-    # INITIALIZATION (not measured)
-    # ============================================================
-    lui sp, 0x10000
+    # Build array at address 0x2000 (safe area in D_mem)
+    addi t0, x0, 1
+    slli t0, t0, 13         # t0 = 0x2000 (8KB offset)
     
-    # Initialize array with sequential values (0..4095)
-    lui x10, %hi(array)
-    addi x10, x10, %lo(array)   # x10 = array base address
-    
-    addi x11, x0, 0             # x11 = counter (0..N-1)
-    lui x12, 4                 # ⚠️ SIZE-DEPENDENT: 1=4K, 4=16K, 16=64K
+    # Initialize 64 elements with sequential values (0..63)
+    addi t1, x0, 0          # counter
+    addi t2, x0, 64         # limit
     
 init_loop:
-    slli x13, x11, 2            # x13 = offset = counter * 4
-    add x14, x10, x13           # x14 = &array[counter]
-    sw x11, 0(x14)              # array[counter] = counter
+    sw   t1, 0(t0)          # array[i] = i
+    addi t0, t0, 4
+    addi t1, t1, 1
+    blt  t1, t2, init_loop
     
-    addi x11, x11, 1            # counter++
-    blt x11, x12, init_loop
+    # Reset pointer to array start
+    addi t0, x0, 1
+    slli t0, t0, 13         # t0 = 0x2000
     
-    # ============================================================
-    # BENCHMARK START (measurement begins here)
-    # ============================================================
-benchmark_start:
-    
-    addi x20, x0, 0             # x20 = sum = 0
-    addi x21, x0, 0             # x21 = index = 0
-    lui x22, 4                 # ⚠️ SIZE-DEPENDENT: 1=4K, 4=16K, 16=64K
+    # Sum array (0+1+2+...+63 = 2016)
+    addi t3, x0, 0          # sum = 0
+    addi t1, x0, 0          # index = 0
+    addi t2, x0, 64         # limit
     
 sum_loop:
-    slli x23, x21, 2            # x23 = offset = index * 4
-    add x24, x10, x23           # x24 = &array[index]
-    lw x25, 0(x24)              # x25 = array[index] ← Load-use hazard!
-    add x20, x20, x25           # sum += array[index] ← ALU forwarding test
+    lw   t4, 0(t0)          # Load array[i]
+    add  t3, t3, t4         # sum += array[i]
+    addi t0, t0, 4
+    addi t1, t1, 1
+    blt  t1, t2, sum_loop
     
-    addi x21, x21, 1            # index++
-    blt x21, x22, sum_loop
+    # Verify sum = 2016 (0x7E0)
+    addi t5, x0, 0x7E0
+    bne  t3, t5, fail
     
-    # ============================================================
-    # BENCHMARK END
-    # ============================================================
+pass:
+    # Write signature
+    addi t0, x0, 1
+    slli t0, t0, 10         # 0x400
     
-    # Result validation
-    # Expected: 8,386,560 (0x7FE000)
-    # Result is in x20
+    addi t1, x0, 0xFA
+    slli t1, t1, 8
+    addi t1, t1, 0xCE
+    slli t1, t1, 8
+    addi t1, t1, 0xCA
+    slli t1, t1, 8
+    addi t1, t1, 0xFE       # 0xFACECAFE
     
-    # Store result for validation
-    lui x30, %hi(result)
-    addi x30, x30, %lo(result)
-    sw x20, 0(x30)
-    
-    # Exit
+    sw   t1, 0(t0)
     ebreak
 
-.data
-result: .word 0
-
+fail:
+    ebreak

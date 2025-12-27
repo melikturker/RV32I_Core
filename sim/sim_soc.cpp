@@ -83,20 +83,20 @@ int main(int argc, char** argv) {
     
     // Load Application Hex (handled by Verilog $readmemh in I_mem typically)
     
-    // Check for +PERF_ENABLE plusarg
-    bool perf_enabled = false;
+    // Check for +TEST_ENABLE plusarg
+    bool test_enabled = false;
     for (int i = 1; i < argc; i++) {
-        if (std::string(argv[i]) == "+PERF_ENABLE") {
-            perf_enabled = true;
+        if (std::string(argv[i]) == "+TEST_ENABLE") {
+            test_enabled = true;
             break;
         }
     }
     
-    if (perf_enabled) {
-        std::cout << "[SIM] Performance monitoring ENABLED" << std::endl;
-        top->perf_enable = 1;
+    if (test_enabled) {
+        std::cout << "[SIM] Test mode enabled (perf monitoring + dumps)" << std::endl;
+        top->test_enable = 1;
     } else {
-        top->perf_enable = 0;
+        top->test_enable = 0;
     }
     
     std::cout << "Starting Simulation Loop..." << std::endl;

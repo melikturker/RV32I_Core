@@ -3,17 +3,17 @@
 module tb();
 	
 	reg clk, rst;
-	reg perf_enable;
+	reg test_enable;
 
 	integer idx;
 	
 	initial begin
 	
-		// Read performance monitoring flag from command line
-		if ($test$plusargs("PERF_ENABLE")) begin
-			perf_enable = 1;
+		// Read test enable flag from command line (enables perf monitoring + dumps)
+		if ($test$plusargs("TEST_ENABLE")) begin
+			test_enable = 1;
 		end else begin
-			perf_enable = 0;
+			test_enable = 0;
 		end
 		
 		clk = 0;
@@ -29,6 +29,6 @@ module tb();
 		
 	always #1 clk = !clk;
 	
-	Core core(clk, rst, perf_enable);
+	Core core(clk, rst, test_enable);
 	
 endmodule 

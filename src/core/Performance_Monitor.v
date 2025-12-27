@@ -2,7 +2,7 @@
  * Performance Monitor Module
  * 
  * Tracks performance counters for pipeline analysis.
- * Only active when perf_enable is high.
+ * Only active when test_enable is high.
  * 
  * Metrics tracked:
  * - Total cycles
@@ -15,7 +15,7 @@
 module Performance_Monitor (
     input wire clk,
     input wire rst,
-    input wire perf_enable,
+    input wire test_enable,
     
     // Performance signals from Core
     input wire instruction_retired,
@@ -82,11 +82,11 @@ module Performance_Monitor (
             branch_count <= 0;
             jump_count <= 0;
             system_count <= 0;
-        end else if (perf_enable) begin
-            // Count cycles (perf_enable controlled externally to stop when program ends)
+        end else if (test_enable) begin
+            // Count cycles (test_enable controlled externally to stop when program ends)
             cycle_count <= cycle_count + 1;
             
-            if (instruction_retired && perf_enable)
+            if (instruction_retired && test_enable)
                 instruction_count <= instruction_count + 1;
             
                 if (is_alu_r)  alu_r_count <= alu_r_count + 1;
@@ -96,25 +96,25 @@ module Performance_Monitor (
                 if (is_branch) branch_count <= branch_count + 1;
                 if (is_jump)   jump_count <= jump_count + 1;
                 if (is_system) system_count <= system_count + 1;
-            if (pipeline_stall && perf_enable)
+            if (pipeline_stall && test_enable)
                 stall_count <= stall_count + 1;
             
-            if (pipeline_bubble && perf_enable)
+            if (pipeline_bubble && test_enable)
                 bubble_count <= bubble_count + 1;
             
-            if (pipeline_flush && perf_enable)
+            if (pipeline_flush && test_enable)
                 flush_count <= flush_count + 1;
         
-            if (raw_hazard_detected && perf_enable)
+            if (raw_hazard_detected && test_enable)
                 raw_hazard_count <= raw_hazard_count + 1;
             
-            if ((forward_ex_to_ex || forward_mem_to_ex) && perf_enable)
+            if ((forward_ex_to_ex || forward_mem_to_ex) && test_enable)
                 forward_count <= forward_count + 1;
             
-            if (conditional_branch && perf_enable)
+            if (conditional_branch && test_enable)
                 cond_branch_count <= cond_branch_count + 1;
             
-            if (unconditional_branch && perf_enable)
+            if (unconditional_branch && test_enable)
                 uncond_branch_count <= uncond_branch_count + 1;
         end
     end
@@ -124,7 +124,7 @@ module Performance_Monitor (
         integer f;
         reg [31:0] adjusted_cycles;
         begin
-            if (perf_enable) begin
+            if (test_enable) begin
                 // Adjust cycle count: subtract 10 for zero detection overhead
                 /* verilator lint_off BLKSEQ */
                 adjusted_cycles = (cycle_count > 10) ? (cycle_count - 10) : cycle_count;
@@ -159,7 +159,7 @@ module Performance_Monitor (
     
     // Auto-save metrics when simulation ends (Verilator final)
     final begin
-        if (perf_enable) begin
+        if (test_enable) begin
             save_metrics();
         end
     end

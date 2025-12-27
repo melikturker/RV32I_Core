@@ -45,7 +45,7 @@ _start:
     bne x12, x0, fail
     
 pass:
-    addi x1, x0, 0xZER0
+    addi x1, x0, 0x0000
     ebreak
 
 fail:

@@ -1,7 +1,0 @@
-{
-    "registers": {
-        "x30": 1
-    },
-    "memory": [],
-    "description": "Bubble sort: x30=1 means array is correctly sorted, x30=0 means failed"
-}

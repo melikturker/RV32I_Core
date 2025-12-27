@@ -160,17 +160,37 @@ module Core (clk, rst, test_enable, program_finished, video_addr, video_data, vi
 	RF regFile(rs1, rs2, rd_WB, RF_in, reg_out1_EX, reg_out2_EX, we_reg_WB, clk);
 
 	
-	ID_EX ID_EX(PC_ID, PC_4_ID, I_imm_out, S_imm_out, B_imm_out, U_imm_out, J_imm_out,  CU_info[6:0], CU_info[9:7],
-			rs1, rs2, rd_ID, ALU_sel_ID, op2_sel_ID, RF_sel_ID, we_mem_ID, we_reg_ID, is_load_ID, is_signed_ID, word_length_ID,
-			
-			PC_EX, PC_4_EX, I_imm_EX, S_imm_EX, B_imm_EX, U_imm_EX, J_imm_EX, opcode_EX, func3_EX,
-			rs1_EX, rs2_EX, rd_EX, ALU_sel_EX, op2_sel_EX, RF_sel_EX1, we_mem_EX, we_reg_EX, is_load_EX, is_signed_EX, word_length_EX, is_bubble_EX, flush, we_EX, clk, rst);
+	ID_EX ID_EX(
+        .PC_in(PC_ID), .PC_4_in(PC_4_ID), 
+        .imm_I_in(I_imm_out), .imm_S_in(S_imm_out), .imm_B_in(B_imm_out), .imm_U_in(U_imm_out), .imm_J_in(J_imm_out),
+        .opcode_in(instr_ID[6:0]), .funct3_in(instr_ID[14:12]), // Direct instruction bits for robustness
+        
+        .rs1_in(rs1), .rs2_in(rs2), .rd_in(rd_ID),
+        .ALU_sel_in(ALU_sel_ID), .op2_sel_in(op2_sel_ID), .RF_sel_in(RF_sel_ID),
+        .we_mem_in(we_mem_ID), .we_reg_in(we_reg_ID), 
+        .is_load_in(is_load_ID), .is_signed_in(is_signed_ID), .word_length_in(word_length_ID),
+        
+        // Outputs
+        .PC_out(PC_EX), .PC_4_out(PC_4_EX),
+        .imm_I_out(I_imm_EX), .imm_S_out(S_imm_EX), .imm_B_out(B_imm_EX), .imm_U_out(U_imm_EX), .imm_J_out(J_imm_EX),
+        .opcode_out(opcode_EX), .funct3_out(func3_EX),
+        
+        .rs1_out(rs1_EX), .rs2_out(rs2_EX), .rd_out(rd_EX),
+        .ALU_sel_out(ALU_sel_EX), .op2_sel_out(op2_sel_EX), .RF_sel_out(RF_sel_EX1),
+        .we_mem_out(we_mem_EX), .we_reg_out(we_reg_EX),
+        .is_load_out(is_load_EX), .is_signed_out(is_signed_EX), .word_length_out(word_length_EX),
+        
+        // Control Inputs
+        .nop_out(is_bubble_EX), 
+        .nop(nop_EX), // Connect to Stall Unit output!
+        .we(we_EX), .clk(clk), .rst(rst)
+    );
 
 	// ------------ EX stage ------------
 	
-	// nop_EX is used by Stall_Unit and performance monitoring
-	// Connect it to ID_EX's nop_out (is_bubble_EX)
-	assign nop_EX = is_bubble_EX;
+	// nop_EX is driven by Stall Unit and connected to ID_EX input.
+	// is_bubble_EX is ID_EX output (bubble status).
+	// No assignment needed between them (short circuit removed).
 	
 	
 	ALU ALU(op1, op2, ALU_sel_EX, is_signed_EX, ALU_out_EX, Z, N);

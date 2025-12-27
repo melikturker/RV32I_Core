@@ -100,5 +100,14 @@ search_done:
     addi x30, x30, %lo(result)
     sw x23, 0(x30)              # Save found index (or -1)
     
-    # Exit
+    # Verify result: expected to find index 199
+    addi x28, x0, SEARCH_TARGET
+    bne x23, x28, fail
+    
+pass:
+    addi x31, x0, 0xAA   # Signature: PASS
+    ebreak
+
+fail:
+    addi x31, x0, 0xFF   # Signature: FAIL
     ebreak

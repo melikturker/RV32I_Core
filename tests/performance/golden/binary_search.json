@@ -1,7 +1,0 @@
-{
-    "registers": {
-        "x23": 199
-    },
-    "memory": [],
-    "description": "Binary search: Found target 199 in array of 256 elements, result=199"
-}

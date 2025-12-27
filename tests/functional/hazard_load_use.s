@@ -53,8 +53,9 @@ _start:
     bne x16, x17, fail
     
 pass:
-    addi x1, x0, 0xBEEF
+    addi x31, x0, 0xAA   # Signature: PASS
     ebreak
 
 fail:
+    addi x31, x0, 0xFF   # Signature: FAIL
     ebreak

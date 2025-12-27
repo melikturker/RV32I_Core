@@ -68,8 +68,9 @@ jalr_target:
     blt x15, x16, pass          // 100 < 150, jump to pass
     
 fail:
+    addi x31, x0, 0xFF   # Signature: FAIL
     ebreak
 
 pass:
-    addi x1, x0, 0xC0DE
+    addi x31, x0, 0xAA   # Signature: PASS
     ebreak

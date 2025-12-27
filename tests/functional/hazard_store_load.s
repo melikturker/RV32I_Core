@@ -52,16 +52,17 @@ _start:
     bne x14, x15, fail
     
     // === Test 5: Overlapping word access ===
-    addi x16, x0, 0xABCD
-    sw x16, 16(x0)              // M[16] = 0xABCD
+    addi x16, x0, 0x7CD         // Use 12-bit safe value
+    sw x16, 16(x0)              // M[16] = 0x7CD
     lw x17, 16(x0)              // Immediate load-back
     
     // Verify exact match
     bne x16, x17, fail
     
 pass:
-    addi x1, x0, 0xF00D
+    addi x31, x0, 0xAA   # Signature: PASS
     ebreak
 
 fail:
+    addi x31, x0, 0xFF   # Signature: FAIL
     ebreak

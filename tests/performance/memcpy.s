@@ -55,20 +55,9 @@ copy_loop:
     bne  t2, t3, fail
     
 pass:
-    # Write signature
-    addi t0, x0, 1
-    slli t0, t0, 10         # 0x400
-    
-    addi t1, x0, 0xFA
-    slli t1, t1, 8
-    addi t1, t1, 0xCE
-    slli t1, t1, 8
-    addi t1, t1, 0xCA
-    slli t1, t1, 8
-    addi t1, t1, 0xFE
-    
-    sw   t1, 0(t0)
+    addi x31, x0, 0xAA   # Signature: PASS
     ebreak
 
 fail:
+    addi x31, x0, 0xFF   # Signature: FAIL
     ebreak

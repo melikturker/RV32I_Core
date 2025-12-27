@@ -147,5 +147,13 @@ verify_done:
     addi x31, x31, %lo(result)
     sw x30, 0(x31)
     
-    # Exit
+    # Set signature based on result
+    beq x30, x0, fail       # if (result == 0) fail
+    
+pass:
+    addi x31, x0, 0xAA   # Signature: PASS
+    ebreak
+
+fail:
+    addi x31, x0, 0xFF   # Signature: FAIL
     ebreak

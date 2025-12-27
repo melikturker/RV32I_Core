@@ -31,7 +31,7 @@ ARGS ?=
 V_FLAGS = -cc --exe -j 4 -Wall -Wno-fatal -Wno-CASEINCOMPLETE -Wno-WIDTHTRUNC \
           -Wno-UNUSEDSIGNAL -Wno-UNUSEDPARAM -Wno-EOFNEWLINE -Wno-DECLFILENAME -Wno-WIDTHEXPAND \
           -I$(SRC_DIR) -I$(CORE_DIR) -I$(MEM_DIR) -I$(PERIPH_DIR) \
-          -Mdir $(OBJ_DIR) --trace
+          -Mdir $(OBJ_DIR) --trace --trace-max-array 32
 
 # Optimization Flags (O3 for speed in both modes)
 OPT_FLAGS = -O3

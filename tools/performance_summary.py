@@ -174,26 +174,23 @@ def save_report(content, save_path=None, verbose_content=None):
         save_path = f"logs/perf_summary_{timestamp}.txt"
     elif not save_path.startswith('/') and '/' not in save_path and not save_path.startswith('logs/'):
         # Just filename, prepend logs/
-        os.makedirs("logs", exist_ok=True)
-        save_path = f"logs/{save_path}"
-    elif '/' in save_path:
-        # Path with directory, create directory if needed
-        os.makedirs(os.path.dirname(save_path), exist_ok=True)
+        output_path = f"logs/perf_report_{timestamp}.txt"
     
-    # Write to file (use cleaned content without ANSI codes)
-    with open(save_path, 'w') as f:
+    # Ensure directory exists
+    os.makedirs(os.path.dirname(output_path) if os.path.dirname(output_path) else ".", exist_ok=True)
+    
+    with open(output_path, 'w') as f:
         f.write("=" * 110 + "\n")
         f.write(f"Performance Summary Report - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
         f.write("=" * 110 + "\n\n")
-        f.write(clean_content)
-        
-        if verbose_content:
+        f.write(clean_summary_text)
+        if clean_verbose_content:
             f.write("\n\n" + "=" * 110 + "\n")
             f.write("DETAILED REPORTS\n")
             f.write("=" * 110 + "\n\n")
-            f.write(verbose_content)
+            f.write(clean_verbose_content)
     
-    return save_path
+    return output_path
 
 if __name__ == "__main__":
     # Test

@@ -834,8 +834,7 @@ Maintainer: Ismail Melik
     p_test.add_argument("--performance", action="store_true", help="Run only performance tests")
     p_test.add_argument("--perf", action="store_true", help="Enable performance monitoring and generate report")
     p_test.add_argument("--verbose", action="store_true", help="Show detailed performance reports")
-    p_test.add_argument("--save", nargs='?', const=True, default=None, metavar='PATH', 
-                       help="Save performance report to file (auto-generated name if no path given)")
+    p_test.add_argument("--save", nargs='?', const=True, metavar="PATH", help="Save performance report to file (default: logs/perf_report_<timestamp>.txt)")
     p_test.add_argument("--save-baseline", action="store_true", help="Save current performance results as baseline (expected.json)")
     p_test.add_argument("--check-regression", action="store_true", help="Compare performance against baseline and report regressions")
     
